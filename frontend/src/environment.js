@@ -7,12 +7,22 @@ const isProd =
     window.location.hostname !== "127.0.0.1");
 
 // Get server URL from environment variables or use defaults
+const rawBackendUrl = (import.meta.env.VITE_BACKEND_URL || "").trim();
+
 const server = isProd
-  ? import.meta.env.VITE_BACKEND_URL || ""
-  : import.meta.env.VITE_BACKEND_URL || "http://localhost:8001";
+  ? rawBackendUrl
+  : rawBackendUrl || "http://localhost:8001";
+
+const normalizedServer = server.endsWith("/") ? server.slice(0, -1) : server;
+
+if (isProd && !normalizedServer) {
+  console.error(
+    "Missing VITE_BACKEND_URL. Set it in Vercel environment variables.",
+  );
+}
 
 console.log(
-  `Environment: ${isProd ? "PRODUCTION" : "DEVELOPMENT"}, Backend: ${server}`,
+  `Environment: ${isProd ? "PRODUCTION" : "DEVELOPMENT"}, Backend: ${normalizedServer}`,
 );
 
-export default server;
+export default normalizedServer;

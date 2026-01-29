@@ -35,7 +35,39 @@ const server = createServer(app);
 const io = connectToSocket(server);
 
 app.set("port", process.env.PORT || 8001);
-app.use(cors());
+
+const allowedOrigins =
+  process.env.NODE_ENV === "production"
+    ? [process.env.FRONTEND_URL, "https://yourdomain.com", /\.vercel\.app$/]
+    : [
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+      ];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) {
+        return callback(null, true);
+      }
+      const isAllowed = allowedOrigins.some((entry) => {
+        if (!entry) return false;
+        if (entry instanceof RegExp) {
+          return entry.test(origin);
+        }
+        return entry === origin;
+      });
+
+      return isAllowed
+        ? callback(null, true)
+        : callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true,
+  }),
+);
 app.use(express.json({ limit: "50kb" }));
 app.use(express.urlencoded({ extended: true, limit: "50kb" }));
 app.use("/api/v1/user", userRoutes);
