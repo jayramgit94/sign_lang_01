@@ -1,0 +1,28 @@
+body {
+    font-family: Arial;
+    text-align: center;
+    background: #f4f4f4;
+}
+
+.container {
+    position: relative;
+    display: inline-block;
+}
+
+#video {
+    border: 2px solid #000;
+    width: 400px;
+}
+
+#canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 400px;
+    height: 300px;
+}
+
+#prediction {
+    font-size: 24px;
+    margin-top: 20px;
+}

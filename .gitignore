@@ -1,0 +1,36 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Node
+node_modules/
+**/node_modules/
+
+# Vite/Build
+frontend/dist/
+backend/dist/
+
+# Env files (keep .env.example)
+.env
+.env.*
+!*.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env/
+.venv/
+venv/
+JARS PROJECT ONNX/env/
+
+# IDE
+.vscode/
+.idea/
+
+# Coverage
+coverage/

@@ -1,0 +1,10 @@
+mediapipe 
+opencv-python 
+torch 
+torchvision 
+onnx 
+onnxruntime 
+flask 
+flask-socketio 
+numpy
+eventlet
