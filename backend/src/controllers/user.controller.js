@@ -37,6 +37,7 @@ const login = async (req, res) => {
 
       user.token = token;
       await user.save();
+<<<<<<< HEAD
 
       // Send token via cookie for cross-origin prod usage (optional client use)
       res.cookie("auth_token", token, {
@@ -46,6 +47,8 @@ const login = async (req, res) => {
         maxAge: 1000 * 60 * 60 * 24 * 7,
       });
 
+=======
+>>>>>>> 59d71b4baf68cd19202485bc720e3aa63bf2de5b
       return res.status(httpStatus.OK).json({ token: token });
     } else {
       return res

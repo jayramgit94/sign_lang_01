@@ -15,10 +15,13 @@ const buildBaseUrl = () => {
 const client = axios.create({
   baseURL: buildBaseUrl(),
   timeout: 15000,
+<<<<<<< HEAD
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
+=======
+>>>>>>> 59d71b4baf68cd19202485bc720e3aa63bf2de5b
 });
 
 export const AuthProvider = ({ children }) => {

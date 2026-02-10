@@ -9,6 +9,10 @@ lerna-debug.log*
 
 Frontend/node_modules
 Backend/node_modules
+<<<<<<< HEAD
+=======
+
+>>>>>>> 59d71b4baf68cd19202485bc720e3aa63bf2de5b
 node_modules
 dist
 dist-ssr
@@ -30,9 +34,27 @@ dist-ssr
 *.sln
 *.sw?
 
+<<<<<<< HEAD
 # Python
 .venv/
 venv/
 
 # OS
+=======
+
+
+# Node
+node_modules/
+
+# Environment variables
+.env
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+>>>>>>> 59d71b4baf68cd19202485bc720e3aa63bf2de5b
 Thumbs.db
