@@ -1,0 +1,509 @@
+.App {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.landingPageContainer {
+  width: 100vw;
+  min-height: 100vh;
+  background: radial-gradient(circle at top left, #1f2937, #0b1220 55%);
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+}
+
+.landingNav {
+  padding: 1.4rem 3rem 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.landingBrand {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.landingBrand h2 {
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+.brandDot {
+  width: 12px;
+  height: 12px;
+  background: #60a5fa;
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(96, 165, 250, 0.8);
+}
+
+.landingActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.landingButton {
+  border: 1px solid transparent;
+  background: rgba(148, 163, 184, 0.15);
+  color: #f8fafc;
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.landingButtonPrimary {
+  background: #3b82f6;
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(59, 130, 246, 0.3);
+}
+
+.landingButtonGhost {
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+}
+
+.landingButton:hover {
+  transform: translateY(-1px);
+}
+
+.landingHero {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: center;
+  gap: 2rem;
+  padding: 2.8rem 3rem 3rem;
+}
+
+.landingContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.landingGlassCard {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 24px;
+  padding: 2rem;
+  box-shadow: 0 24px 40px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.eyebrow {
+  font-size: 0.85rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.8);
+  margin-bottom: 0.75rem;
+}
+
+.landingTitle {
+  font-size: clamp(2rem, 3vw, 3rem);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.landingSubtitle {
+  font-size: 1.05rem;
+  color: rgba(226, 232, 240, 0.8);
+  margin-top: 0.8rem;
+}
+
+.landingCtaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-top: 1.4rem;
+}
+
+.landingStats {
+  display: flex;
+  gap: 1.6rem;
+  flex-wrap: wrap;
+}
+
+.landingStats h3 {
+  font-size: 1.2rem;
+  margin-bottom: 0.2rem;
+}
+
+.landingStats p {
+  color: rgba(226, 232, 240, 0.6);
+}
+
+.landingIllustration {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.landingIllustration img {
+  width: min(440px, 80vw);
+  height: auto;
+  border-radius: 24px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
+}
+
+.homePage {
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #111827, #0b1220 60%);
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+}
+
+.homeTopBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 3rem 0.5rem;
+  gap: 1rem;
+}
+
+.homeBrand {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.homeBrand h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.homeActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.homeActionButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #f8fafc;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.homeActionButton svg {
+  font-size: 1.1rem;
+}
+
+.homeActionButtonPrimary {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(59, 130, 246, 0.4) !important;
+  border-radius: 999px !important;
+  text-transform: none !important;
+  font-weight: 600 !important;
+  padding-inline: 1.1rem !important;
+}
+
+.homeHero {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2.5rem;
+  align-items: center;
+  padding: 2.5rem 3rem 3.5rem;
+}
+
+.homeCard {
+  background: rgba(15, 23, 42, 0.65);
+  border-radius: 26px;
+  padding: 2.2rem;
+  box-shadow: 0 30px 45px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.homeEyebrow {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(148, 163, 184, 0.7);
+}
+
+.homeTitle {
+  font-size: clamp(2rem, 3.5vw, 3rem);
+  line-height: 1.2;
+}
+
+.homeSubtitle {
+  color: rgba(226, 232, 240, 0.8);
+  font-size: 1rem;
+}
+
+.homeForm {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.homeField {
+  min-width: 220px;
+  flex: 1;
+}
+
+.homeStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.homeStats h3 {
+  font-size: 1rem;
+}
+
+.homeStats p {
+  color: rgba(226, 232, 240, 0.65);
+  font-size: 0.9rem;
+}
+
+.homePreview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.homePreview img {
+  width: min(440px, 80vw);
+  height: auto;
+  border-radius: 28px;
+  box-shadow: 0 24px 40px rgba(0, 0, 0, 0.45);
+}
+
+.historyPage {
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #111827, #0b1220 60%);
+  color: #f8fafc;
+  padding: 2.5rem 3rem 3rem;
+}
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.historyHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.historyTitle {
+  font-weight: 700 !important;
+}
+
+.historySubtitle {
+  color: rgba(226, 232, 240, 0.75) !important;
+  margin-top: 0.4rem !important;
+}
+
+.historyHomeButton {
+  background: rgba(148, 163, 184, 0.15) !important;
+  border-radius: 12px !important;
+  color: #f8fafc !important;
+}
+
+.historyClearButton {
+  border-radius: 999px !important;
+  color: #f8fafc !important;
+  border-color: rgba(148, 163, 184, 0.6) !important;
+  text-transform: none !important;
+}
+
+.historyContainer {
+  padding-inline: 0 !important;
+}
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.historyCard {
+  background: rgba(15, 23, 42, 0.6) !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(148, 163, 184, 0.2) !important;
+  color: #f8fafc !important;
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.25) !important;
+}
+
+.historyCode {
+  font-weight: 600 !important;
+  color: #93c5fd !important;
+}
+
+.historyMeta {
+  color: rgba(226, 232, 240, 0.7) !important;
+}
+
+.historyChatMeta {
+  margin-top: 0.5rem !important;
+  color: rgba(226, 232, 240, 0.6) !important;
+  font-size: 0.85rem !important;
+}
+
+.historyActions {
+  padding: 0 16px 16px !important;
+}
+
+.historyActions button {
+  border-radius: 999px !important;
+  text-transform: none !important;
+}
+
+.historyMessage {
+  text-align: center;
+  padding: 2.5rem 0;
+  color: rgba(226, 232, 240, 0.7) !important;
+}
+
+.historyError {
+  background: rgba(239, 68, 68, 0.15) !important;
+  padding: 16px !important;
+  border-radius: 12px !important;
+}
+
+.historyEmpty {
+  padding: 2.5rem !important;
+  text-align: center;
+  background: rgba(59, 130, 246, 0.12) !important;
+  border-radius: 16px !important;
+  color: rgba(226, 232, 240, 0.85) !important;
+}
+
+.navBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 20px;
+  text-align: center;
+}
+.meetContainer {
+  display: flex;
+  padding-inline: 20px;
+  height: 80vh;
+  gap: 10vw;
+  justify-content: center;
+}
+
+.leftPanel {
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.rightPanel {
+  display: flex;
+  align-items: center;
+}
+
+.rightPanel > img {
+  width: 30vw;
+  height: auto;
+  border-radius: 20px;
+}
+
+@media (max-width: 900px) {
+  .landingNav {
+    padding: 1rem 1.5rem 0.5rem;
+  }
+
+  .landingHero {
+    padding: 2rem 1.5rem 2.5rem;
+  }
+
+  .landingActions {
+    justify-content: flex-end;
+  }
+
+  .homeTopBar {
+    padding: 1.2rem 1.5rem 0.5rem;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .homeActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .homeHero {
+    padding: 2rem 1.5rem 3rem;
+  }
+
+  .homeForm {
+    flex-direction: column;
+  }
+
+  .homeField {
+    width: 100%;
+  }
+
+  .historyPage {
+    padding: 2rem 1.5rem 2.5rem;
+  }
+
+  .historyHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .historyHeaderActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 600px) {
+  .landingActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .landingButton {
+    width: 100%;
+  }
+
+  .homeActionButton,
+  .homeActionButtonPrimary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .historyHomeButton {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .historyClearButton {
+    width: 100% !important;
+  }
+}

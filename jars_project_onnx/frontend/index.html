@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Sign Language Live Prediction</title>
+
+    <!-- ============ EXTERNAL LIBRARIES ============ -->
+    <!-- Socket.IO: For real-time communication with backend server -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+    <!-- MediaPipe: Google's ML library for landmark detection -->
+    <!-- camera_utils.js: Utilities for webcam access and frame handling -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <!-- drawing_utils.js: Draw landmarks on canvas for visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <!-- holistic.js: Main MediaPipe Holistic model (hand + face + pose detection) -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
+
+    <!-- Custom CSS styling -->
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- ============ MAIN CONTENT ============ -->
+    <!-- Title -->
+    <h2>Live Sign Language Recognition</h2>
+
+    <!-- Video element: Displays webcam feed -->
+    <video id="video" width="640" height="480" autoplay></video>
+
+    <!-- Hidden canvas: Used internally by MediaPipe for processing -->
+    <canvas id="canvas" width="640" height="480" style="display: none"></canvas>
+
+    <!-- Prediction display: Shows recognized gesture -->
+    <h1 id="label">Prediction: ...</h1>
+
+    <!-- Score display: Shows confidence (0-1) -->
+    <h3 id="score"></h3>
+
+    <!-- ============ SCRIPTS ============ -->
+    <!-- Load the main application logic -->
+    <script src="script.js"></script>
+  </body>
+</html>
