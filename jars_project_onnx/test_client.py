@@ -6,19 +6,6 @@ sio = socketio.Client()
 
 @sio.event
 def connect():
-    print("Client connected to server")
-
-@sio.event
-def connect_error(msg):
-    print("Connection failed!", msg)
-
-@sio.event
-def disconnect():
-    print("Client disconnected")
-
-
-@sio.event
-def connect():
     print("Connected to server")
 
     # send a fake vector with 1530 values
@@ -28,6 +15,10 @@ def connect():
         "vector": vec,
         "normalized": False
     })
+
+@sio.event
+def connect_error(msg):
+    print("Connection failed!", msg)
 
 @sio.on("prediction")
 def on_prediction(data):

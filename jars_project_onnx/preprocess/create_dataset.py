@@ -9,11 +9,21 @@ import json
 import numpy as np
 from glob import glob
 import os
+import sys
+
+# Resolve paths relative to this script so it works from any working directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(BASE_DIR)  # Parent = jars_project_onnx/
+
+# Add preprocess dir to path so 'normalize' import works from any CWD
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
 from normalize import normalize_vector
 
 # ============ CONFIG ============
 # Path pattern to find all raw JSONL files
-RAW_PATH = "../data_raw/*.jsonl"
+RAW_PATH = os.path.join(PROJECT_DIR, "data_raw", "*.jsonl")
 
 # ============ INITIALIZE STORAGE ============
 X = []           # Feature vectors (landmarks)
@@ -57,16 +67,17 @@ y = np.array(y, dtype=np.int64)
 
 # ============ SAVE PROCESSED DATA ============
 # Create output directory if it doesn't exist
-os.makedirs("../data_processed", exist_ok=True)
+data_out = os.path.join(PROJECT_DIR, "data_processed")
+os.makedirs(data_out, exist_ok=True)
 
 # Save feature vectors
-np.save("../data_processed/X.npy", X)
+np.save(os.path.join(data_out, "X.npy"), X)
 # Save labels
-np.save("../data_processed/y.npy", y)
+np.save(os.path.join(data_out, "y.npy"), y)
 
 # ============ SAVE CLASS MAPPING ============
 # Save class label mapping for later reference
-with open("../classes.json", "w") as f:
+with open(os.path.join(PROJECT_DIR, "classes.json"), "w") as f:
     json.dump(classes, f, indent=2)
 
 print("Saved X.npy, y.npy and classes.json")

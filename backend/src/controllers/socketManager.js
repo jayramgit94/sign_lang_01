@@ -10,7 +10,6 @@ export const connectToSocket = (server) => {
     process.env.NODE_ENV === "production"
       ? [
           process.env.FRONTEND_URL,
-          "https://yourdomain.com",
           /\.vercel\.app$/, // Allow all Vercel preview & production URLs
         ]
       : [

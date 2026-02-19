@@ -14,7 +14,13 @@ import cv2
 import mediapipe as mp
 import json
 import time
+import os
 import numpy as np
+
+# Resolve paths relative to this script so it works from any working directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_RAW_DIR = os.path.join(BASE_DIR, "data_raw")
+os.makedirs(DATA_RAW_DIR, exist_ok=True)
 
 # ============ INITIALIZE MEDIAPIPE ============
 # Load pre-trained hand detection model
@@ -120,11 +126,12 @@ while True:
 
 # ============ SAVE DATA ============
 # Save all recorded frames to JSONL file (one JSON per line)
-with open(f"data_{label}.jsonl", "w") as f:
+out_path = os.path.join(DATA_RAW_DIR, f"data_{label}.jsonl")
+with open(out_path, "w") as f:
     for row in out:
         f.write(json.dumps(row) + "\n")
 
-print(f"Saved {len(out)} frames to data_{label}.jsonl")
+print(f"Saved {len(out)} frames to {out_path}")
 
 # Cleanup
 cap.release()

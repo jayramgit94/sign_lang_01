@@ -10,6 +10,7 @@ WORKFLOW:
 """
 
 import json
+import os
 import numpy as np
 import torch
 import torch.nn as nn
@@ -17,17 +18,21 @@ from torch.utils.data import TensorDataset, DataLoader
 from sklearn.model_selection import train_test_split
 import onnx
 
+# Resolve paths relative to this script so it works from any working directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(BASE_DIR)  # Parent = jars_project_onnx/
+
 # ============ LOAD DATASET ============
 # Load preprocessed landmark vectors
-X = np.load("../data_processed/X.npy")    # shape: (num_samples, 1530) - landmark features
-y = np.load("../data_processed/y.npy")    # shape: (num_samples,) - gesture labels (0,1,2,...)
+X = np.load(os.path.join(PROJECT_DIR, "data_processed", "X.npy"))    # shape: (num_samples, 1530)
+y = np.load(os.path.join(PROJECT_DIR, "data_processed", "y.npy"))    # shape: (num_samples,)
 
 # Get input/output dimensions
 num_features = X.shape[1]                  # 1530 (42 hand + 468 face landmarks * 3 coords)
 
 # ============ LOAD CLASS INFORMATION ============
 # Load class label mapping (e.g., {0: "Hello", 1: "Yes", ...})
-with open("../classes.json") as f:
+with open(os.path.join(PROJECT_DIR, "classes.json")) as f:
     classes = json.load(f)
 num_classes = len(classes)                 # Number of gesture classes to predict
 
@@ -127,7 +132,7 @@ print("Training completed.")
 
 # ============ SAVE PYTORCH MODEL ============
 # Save model weights for later use
-torch.save(model.state_dict(), "model.pth")
+torch.save(model.state_dict(), os.path.join(BASE_DIR, "model.pth"))
 print("Saved model.pth")
 
 # ============ EXPORT TO ONNX ============
@@ -143,12 +148,12 @@ dummy = torch.randn(1, num_features)
 
 # Export model
 torch.onnx.export(
-    model,                    # Model to export
-    dummy,                    # Dummy input (for shape inference)
-    "model.onnx",            # Output file
-    input_names=['input'],   # Input node name
-    output_names=['output'], # Output node name
-    opset_version=11         # ONNX opset version (compatibility)
+    model,                                      # Model to export
+    dummy,                                       # Dummy input (for shape inference)
+    os.path.join(BASE_DIR, "model.onnx"),        # Output file
+    input_names=['input'],                       # Input node name
+    output_names=['output'],                     # Output node name
+    opset_version=11                             # ONNX opset version (compatibility)
 )
 
 print("Saved model.onnx")
