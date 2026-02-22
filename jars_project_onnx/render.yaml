@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: signlang-ai
+    runtime: python
+    region: oregon
+    plan: free
+    rootDir: jars_project_onnx
+    buildCommand: pip install -r requirements-render.txt
+    startCommand: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT server:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.6

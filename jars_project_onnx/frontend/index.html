@@ -1,42 +1,248 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
-    <title>Sign Language Live Prediction</title>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>SignLang AI — Live Call</title>
 
-    <!-- ============ EXTERNAL LIBRARIES ============ -->
-    <!-- Socket.IO: For real-time communication with backend server -->
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Material Icons -->
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons+Round"
+      rel="stylesheet"
+    />
+
+    <!-- Socket.IO -->
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 
-    <!-- MediaPipe: Google's ML library for landmark detection -->
-    <!-- camera_utils.js: Utilities for webcam access and frame handling -->
+    <!-- MediaPipe -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <!-- drawing_utils.js: Draw landmarks on canvas for visualization -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-    <!-- holistic.js: Main MediaPipe Holistic model (hand + face + pose detection) -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
 
-    <!-- Custom CSS styling -->
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- ============ MAIN CONTENT ============ -->
-    <!-- Title -->
-    <h2>Live Sign Language Recognition</h2>
+    <!-- ========== JOIN SCREEN ========== -->
+    <div class="join-screen" id="joinScreen">
+      <div class="join-card">
+        <div class="join-logo">🤟</div>
+        <h1 class="join-title">SignLang AI</h1>
+        <p class="join-subtitle">Real-time sign language recognition</p>
+        <input
+          type="text"
+          class="join-input"
+          id="usernameInput"
+          placeholder="Enter your name"
+          maxlength="20"
+          autocomplete="off"
+        />
+        <button class="join-btn" id="joinBtn">
+          <span class="material-icons-round">videocam</span>
+          Join Room
+        </button>
+        <div class="join-gestures">
+          <span class="join-chip">👋 Hello</span>
+          <span class="join-chip">👍 Yes</span>
+          <span class="join-chip">👎 No</span>
+          <span class="join-chip">🙏 Thank You</span>
+          <span class="join-chip">🤟 I Love You</span>
+        </div>
+      </div>
+    </div>
 
-    <!-- Video element: Displays webcam feed -->
-    <video id="video" width="640" height="480" autoplay></video>
+    <!-- ========== CALL SCREEN ========== -->
+    <div class="call-screen hidden" id="callScreen">
+      <!-- Top bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <span class="topbar-logo">🤟</span>
+          <span class="topbar-title">SignLang AI</span>
+          <span class="topbar-divider"></span>
+          <span class="topbar-room" id="roomName">General Room</span>
+        </div>
+        <div class="topbar-center">
+          <span class="status-indicator" id="statusDot"></span>
+          <span class="status-label" id="statusText">Connecting…</span>
+          <span class="topbar-sep">·</span>
+          <span class="topbar-time" id="callTimer">00:00</span>
+        </div>
+        <div class="topbar-right">
+          <span class="topbar-badge" id="fpsBadge">-- FPS</span>
+          <span class="topbar-users" id="userCount" title="Online users">
+            <span class="material-icons-round">group</span>
+            <span id="userCountNum">1</span>
+          </span>
+        </div>
+      </header>
 
-    <!-- Hidden canvas: Used internally by MediaPipe for processing -->
-    <canvas id="canvas" width="640" height="480" style="display: none"></canvas>
+      <!-- Main area: Video + Side Panel -->
+      <div class="call-body">
+        <!-- Video area -->
+        <div class="video-area" id="videoArea">
+          <div class="video-wrapper" id="videoWrapper">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="overlay"></canvas>
+            <canvas id="canvas" style="display: none"></canvas>
 
-    <!-- Prediction display: Shows recognized gesture -->
-    <h1 id="label">Prediction: ...</h1>
+            <!-- Floating username tag -->
+            <div class="video-nametag" id="videoNametag">You</div>
 
-    <!-- Score display: Shows confidence (0-1) -->
-    <h3 id="score"></h3>
+            <!-- Prediction overlay (subtitle style) -->
+            <div class="prediction-overlay" id="predictionOverlay">
+              <div class="pred-main" id="label">Show your hand…</div>
+              <div class="pred-bar-wrap">
+                <div class="pred-bar" id="confidenceBar"></div>
+              </div>
+              <div class="pred-score" id="score">—</div>
+            </div>
+          </div>
+        </div>
 
-    <!-- ============ SCRIPTS ============ -->
-    <!-- Load the main application logic -->
+        <!-- Side panel (Chat / People / Signs) -->
+        <aside class="side-panel" id="sidePanel">
+          <!-- Panel tabs -->
+          <div class="panel-tabs">
+            <button class="panel-tab active" data-tab="chat">
+              <span class="material-icons-round">chat</span> Chat
+              <span class="tab-badge hidden" id="chatBadge">0</span>
+            </button>
+            <button class="panel-tab" data-tab="people">
+              <span class="material-icons-round">people</span> People
+            </button>
+            <button class="panel-tab" data-tab="signs">
+              <span class="material-icons-round">gesture</span> Signs
+            </button>
+            <button class="panel-close" id="panelClose" title="Close panel">
+              <span class="material-icons-round">close</span>
+            </button>
+          </div>
+
+          <!-- Tab: Chat -->
+          <div class="panel-content active" data-content="chat">
+            <div class="chat-messages" id="chatMessages">
+              <div class="chat-empty">No messages yet. Say hi! 👋</div>
+            </div>
+            <form class="chat-form" id="chatForm">
+              <input
+                type="text"
+                class="chat-input"
+                id="chatInput"
+                placeholder="Type a message…"
+                maxlength="500"
+                autocomplete="off"
+              />
+              <button type="submit" class="chat-send" title="Send">
+                <span class="material-icons-round">send</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Tab: People -->
+          <div class="panel-content" data-content="people">
+            <div class="people-list" id="peopleList">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Tab: Signs -->
+          <div class="panel-content" data-content="signs">
+            <div class="signs-section">
+              <div class="signs-title">Supported Gestures</div>
+              <div class="signs-grid">
+                <div class="sign-card">
+                  <span class="sign-emoji">👋</span
+                  ><span class="sign-name">Hello</span>
+                </div>
+                <div class="sign-card">
+                  <span class="sign-emoji">👍</span
+                  ><span class="sign-name">Yes</span>
+                </div>
+                <div class="sign-card">
+                  <span class="sign-emoji">👎</span
+                  ><span class="sign-name">No</span>
+                </div>
+                <div class="sign-card">
+                  <span class="sign-emoji">🙏</span
+                  ><span class="sign-name">Thank You</span>
+                </div>
+                <div class="sign-card">
+                  <span class="sign-emoji">🤟</span
+                  ><span class="sign-name">I Love You</span>
+                </div>
+              </div>
+            </div>
+            <div class="signs-section">
+              <div class="signs-title">Recent Detections</div>
+              <div class="history-list" id="historyList">
+                <div class="history-empty">No signs detected yet</div>
+              </div>
+            </div>
+            <div class="signs-section">
+              <div class="signs-title">Tips</div>
+              <ul class="tips-list">
+                <li>Keep your hand clearly visible in frame</li>
+                <li>Good lighting helps accuracy</li>
+                <li>Hold the sign steady ~1 second</li>
+              </ul>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- Bottom control bar -->
+      <footer class="control-bar">
+        <div class="ctrl-group ctrl-left">
+          <button class="ctrl-btn" id="btnMirror" title="Mirror camera">
+            <span class="material-icons-round">flip</span>
+            <span class="ctrl-label">Mirror</span>
+          </button>
+          <button class="ctrl-btn" id="btnLandmarks" title="Toggle landmarks">
+            <span class="material-icons-round">auto_fix_high</span>
+            <span class="ctrl-label">Landmarks</span>
+          </button>
+        </div>
+
+        <div class="ctrl-group ctrl-center">
+          <button
+            class="ctrl-btn ctrl-cam active"
+            id="btnCam"
+            title="Camera on/off"
+          >
+            <span class="material-icons-round">videocam</span>
+          </button>
+          <button class="ctrl-btn ctrl-end" id="btnLeave" title="Leave room">
+            <span class="material-icons-round">call_end</span>
+          </button>
+        </div>
+
+        <div class="ctrl-group ctrl-right">
+          <button class="ctrl-btn" id="btnChat" title="Chat">
+            <span class="material-icons-round">chat</span>
+            <span class="ctrl-label">Chat</span>
+            <span class="ctrl-badge hidden" id="ctrlChatBadge">0</span>
+          </button>
+          <button class="ctrl-btn" id="btnPeople" title="People">
+            <span class="material-icons-round">people</span>
+            <span class="ctrl-label">People</span>
+          </button>
+          <button class="ctrl-btn" id="btnSigns" title="Signs">
+            <span class="material-icons-round">gesture</span>
+            <span class="ctrl-label">Signs</span>
+          </button>
+        </div>
+      </footer>
+    </div>
+
     <script src="script.js"></script>
   </body>
 </html>

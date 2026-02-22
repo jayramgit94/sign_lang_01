@@ -1,0 +1,10 @@
+# Production dependencies for Render deployment (server only)
+# NOTE: torch, torchvision, mediapipe, opencv-python, onnx are NOT needed
+#       for the server — they are only used for training/data collection.
+
+flask
+flask-socketio
+numpy
+onnxruntime
+eventlet
+gunicorn

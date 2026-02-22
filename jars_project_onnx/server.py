@@ -11,6 +11,7 @@ eventlet.monkey_patch()  # Monkey patch for eventlet async support
 
 import json
 import os
+from datetime import datetime
 import numpy as np
 from flask import Flask, request, send_from_directory
 from flask_socketio import SocketIO, emit
@@ -101,10 +102,17 @@ print("Loaded model:", MODEL_PATH)
 print("Input:", onnx_input_name, "Output:", onnx_output_name)
 
 # ============ FLASK + SOCKETIO SETUP ============
-# Flask: Web framework to serve frontend and handle HTTP requests
-# SocketIO: Real-time bidirectional communication between client & server
-app = Flask(__name__, static_folder="frontend")  # Serve files from frontend/ folder
+app = Flask(__name__, static_folder="frontend")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
+
+# ============ CONNECTED USERS TRACKING ============
+# { sid: { "username": str, "sid": str } }
+connected_users = {}
+
+def broadcast_users():
+    """Send updated user list to all clients"""
+    users = list(connected_users.values())
+    socketio.emit("users_update", {"users": users})
 
 # ============ ROUTES ============
 @app.route("/")
@@ -129,8 +137,43 @@ def softmax(x):
     # Divide by sum to normalize to probability distribution
     return ex / ex.sum(axis=-1, keepdims=True)
 
-# ============ SOCKETIO EVENT HANDLER ============
-# Receives landmark vectors from frontend, runs inference, returns prediction
+# ============ SOCKETIO: USER MANAGEMENT ============
+@socketio.on("user_join")
+def handle_user_join(data):
+    """User joined the room"""
+    username = data.get("username", "Guest")[:20]
+    sid = request.sid
+    connected_users[sid] = {"username": username, "sid": sid}
+    print(f"[+] {username} joined (sid={sid}), total={len(connected_users)}")
+    broadcast_users()
+
+@socketio.on("disconnect")
+def handle_disconnect():
+    """User disconnected"""
+    sid = request.sid
+    user = connected_users.pop(sid, None)
+    name = user["username"] if user else "Unknown"
+    print(f"[-] {name} left (sid={sid}), total={len(connected_users)}")
+    broadcast_users()
+
+# ============ SOCKETIO: CHAT ============
+@socketio.on("chat_send")
+def handle_chat(data):
+    """Broadcast chat message to all users"""
+    sid = request.sid
+    user = connected_users.get(sid, {"username": "Guest"})
+    message = data.get("message", "")[:500]  # Limit length
+    if not message.strip():
+        return
+    time_str = datetime.now().strftime("%I:%M %p")
+    socketio.emit("chat_message", {
+        "username": user["username"],
+        "message": message,
+        "time": time_str,
+        "sid": sid,
+    })
+
+# ============ SOCKETIO: LANDMARK PREDICTION ============
 @socketio.on("landmark")
 def handle_landmark(data):
     """
