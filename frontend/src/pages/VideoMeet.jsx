@@ -14,6 +14,8 @@ import server from "../environment";
 import styles from "../styles/videoComponent.module.css";
 
 const server_url = server;
+// VITE_SIGNLANG_URL must be set in Vercel env vars for production
+// Example: https://signlang-ai-xxxx.onrender.com
 const signLangServerUrl =
   import.meta.env.VITE_SIGNLANG_URL || "http://localhost:5000";
 

@@ -7,13 +7,12 @@ const isProd =
     window.location.hostname !== "127.0.0.1");
 
 // Get server URL from environment variables or use defaults
+// VITE_BACKEND_URL must be set in Vercel env vars for production
+// Example: https://zoom-backend-xxxx.onrender.com
 const rawBackendUrl = (import.meta.env.VITE_BACKEND_URL || "").trim();
 
-// Production fallback for hosted backend (override via VITE_BACKEND_URL)
-const prodFallback = "https://sign-lang-01.onrender.com";
-
 const server = isProd
-  ? rawBackendUrl || prodFallback
+  ? rawBackendUrl || ""
   : rawBackendUrl || "http://localhost:8001";
 
 const normalizedServer = server.endsWith("/") ? server.slice(0, -1) : server;
