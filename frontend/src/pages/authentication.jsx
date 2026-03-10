@@ -8,31 +8,54 @@ import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
+import { AnimatePresence, motion } from "framer-motion";
 import * as React from "react";
+import PageTransition from "../components/common/PageTransition";
 import { AuthContext } from "../contexts/AuthContext";
 
-// TODO remove, this demo shouldn't need to reset the theme.
-
-const defaultTheme = createTheme({
+const theme = createTheme({
   palette: {
-    primary: {
-      main: "#3b82f6",
-    },
-    background: {
-      default: "#f8fafc",
-    },
+    primary: { main: "#6366f1" },
+    background: { default: "#060a13" },
   },
   typography: {
     fontFamily: "'Inter', 'Segoe UI', sans-serif",
   },
+  shape: { borderRadius: 12 },
 });
 
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 20 },
+  animate: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.45, delay, ease: [0.25, 0.46, 0.45, 0.94] },
+  },
+});
+
+const textFieldSx = {
+  "& .MuiOutlinedInput-root": {
+    borderRadius: "12px",
+    background: "rgba(15,23,42,0.5)",
+    color: "#f1f5f9",
+    transition: "all 0.2s ease",
+    "& fieldset": { borderColor: "rgba(148,163,184,0.22)" },
+    "&:hover fieldset": { borderColor: "rgba(99,102,241,0.4)" },
+    "&.Mui-focused fieldset": {
+      borderColor: "#6366f1",
+      boxShadow: "0 0 0 3px rgba(99,102,241,0.12)",
+    },
+  },
+  "& .MuiInputLabel-root": { color: "rgba(148,163,184,0.6)" },
+  "& .MuiInputLabel-root.Mui-focused": { color: "#818cf8" },
+};
+
 export default function Authentication() {
-  const [username, setUsername] = React.useState();
-  const [password, setPassword] = React.useState();
-  const [name, setName] = React.useState();
-  const [error, setError] = React.useState();
-  const [message, setMessage] = React.useState();
+  const [username, setUsername] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [name, setName] = React.useState("");
+  const [error, setError] = React.useState("");
+  const [message, setMessage] = React.useState("");
 
   const [formState, setFormState] = React.useState(0);
 
@@ -43,14 +66,12 @@ export default function Authentication() {
   let handleAuth = async () => {
     try {
       if (formState === 0) {
-        // Login
         const result = await handleLogin(username, password);
         if (!result.success) {
           setError(result.message);
         }
       }
       if (formState === 1) {
-        // Register
         const result = await handleRegister(name, username, password);
         if (result.success) {
           setUsername("");
@@ -71,163 +92,376 @@ export default function Authentication() {
   };
 
   return (
-    <ThemeProvider theme={defaultTheme}>
-      <Grid container component="main" sx={{ minHeight: "100vh" }}>
-        <CssBaseline />
-        <Grid
-          item
-          xs={false}
-          sm={4}
-          md={7}
-          sx={{
-            background:
-              "linear-gradient(135deg, rgba(15,23,42,0.95), rgba(59,130,246,0.4))",
-            color: "#f8fafc",
-            display: { xs: "none", sm: "flex" },
-            flexDirection: "column",
-            justifyContent: "space-between",
-            p: 6,
-          }}
-        >
-          <Box>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Box
-                sx={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: "50%",
-                  background: "#60a5fa",
-                  boxShadow: "0 0 12px rgba(96,165,250,0.8)",
-                }}
-              />
-              <Box component="h2" sx={{ fontSize: "1.4rem" }}>
-                Apna Meet
-              </Box>
-            </Box>
-            <Box sx={{ mt: 8, maxWidth: 380 }}>
-              <Box component="h1" sx={{ fontSize: "2.5rem", mb: 2 }}>
-                Welcome back.
-              </Box>
-              <Box sx={{ color: "rgba(248,250,252,0.8)", fontSize: "1rem" }}>
-                Sign in to keep your meetings organized, secure, and always in
-                sync.
-              </Box>
-            </Box>
-          </Box>
-          <Box sx={{ fontSize: "0.9rem", color: "rgba(248,250,252,0.7)" }}>
-            Private, fast, and built for calm conversations.
-          </Box>
-        </Grid>
-        <Grid
-          item
-          xs={12}
-          sm={8}
-          md={5}
-          component={Paper}
-          elevation={0}
-          square
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "#f8fafc",
-          }}
-        >
-          <Box
+    <PageTransition>
+      <ThemeProvider theme={theme}>
+        <Grid container component="main" sx={{ minHeight: "100vh" }}>
+          <CssBaseline />
+
+          {/* ---- left panel ---- */}
+          <Grid
+            size={{ xs: 0, sm: 4, md: 7 }}
             sx={{
-              my: 6,
-              mx: { xs: 3, sm: 6 },
-              display: "flex",
+              background:
+                "linear-gradient(165deg, #0c1221 0%, #060a13 40%, #0e1a2e 100%)",
+              color: "#f1f5f9",
+              display: { xs: "none", sm: "flex" },
               flexDirection: "column",
-              alignItems: "stretch",
-              width: "100%",
-              maxWidth: 420,
+              justifyContent: "space-between",
+              p: 6,
+              position: "relative",
+              overflow: "hidden",
             }}
           >
-            <Avatar sx={{ mb: 2, bgcolor: "primary.main" }}>
-              <LockOutlinedIcon />
-            </Avatar>
+            {/* ambient glow */}
+            <Box
+              sx={{
+                position: "absolute",
+                top: "-20%",
+                left: "-10%",
+                width: "55%",
+                height: "60%",
+                background:
+                  "radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%)",
+                pointerEvents: "none",
+              }}
+            />
+            <Box
+              sx={{
+                position: "absolute",
+                bottom: "-15%",
+                right: "-8%",
+                width: "45%",
+                height: "50%",
+                background:
+                  "radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%)",
+                pointerEvents: "none",
+              }}
+            />
 
-            <Box sx={{ mb: 3 }}>
-              <Button
-                variant={formState === 0 ? "contained" : "outlined"}
-                onClick={() => {
-                  setFormState(0);
-                }}
-                sx={{ mr: 1 }}
-              >
-                Sign In
-              </Button>
-              <Button
-                variant={formState === 1 ? "contained" : "outlined"}
-                onClick={() => {
-                  setFormState(1);
+            <motion.div {...fadeUp(0.1)}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  position: "relative",
+                  zIndex: 1,
                 }}
               >
-                Sign Up
-              </Button>
-            </Box>
-
-            <Box component="form" noValidate sx={{ mt: 1 }}>
-              {formState === 1 ? (
-                <TextField
-                  margin="normal"
-                  required
-                  fullWidth
-                  id="username"
-                  label="Full Name"
-                  name="username"
-                  value={name}
-                  autoFocus
-                  size="small"
-                  onChange={(e) => setName(e.target.value)}
+                <motion.div
+                  style={{
+                    width: 11,
+                    height: 11,
+                    borderRadius: "50%",
+                    background: "#6366f1",
+                    boxShadow: "0 0 14px rgba(99,102,241,0.6)",
+                  }}
+                  animate={{ scale: [1, 1.3, 1] }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 3,
+                    ease: "easeInOut",
+                  }}
                 />
-              ) : (
-                <></>
-              )}
+                <Box
+                  component="h2"
+                  sx={{
+                    fontSize: "1.4rem",
+                    fontWeight: 700,
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  Apna Meet
+                </Box>
+              </Box>
+            </motion.div>
 
-              <TextField
-                margin="normal"
-                required
-                fullWidth
-                id="username"
-                label="Username"
-                name="username"
-                value={username}
-                autoFocus={formState === 0}
-                size="small"
-                onChange={(e) => setUsername(e.target.value)}
-              />
-              <TextField
-                margin="normal"
-                required
-                fullWidth
-                name="password"
-                label="Password"
-                value={password}
-                type="password"
-                size="small"
-                onChange={(e) => setPassword(e.target.value)}
-                id="password"
-              />
+            <motion.div
+              {...fadeUp(0.25)}
+              style={{ position: "relative", zIndex: 1 }}
+            >
+              <Box sx={{ maxWidth: 400 }}>
+                <Box
+                  component="h1"
+                  sx={{
+                    fontSize: "2.8rem",
+                    fontWeight: 800,
+                    letterSpacing: "-0.03em",
+                    lineHeight: 1.1,
+                    mb: 2,
+                    background: "linear-gradient(135deg, #f1f5f9, #94a3b8)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  Welcome back.
+                </Box>
+                <Box
+                  sx={{
+                    color: "rgba(226,232,240,0.72)",
+                    fontSize: "1.05rem",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  Sign in to keep your meetings organized, secure, and always in
+                  sync.
+                </Box>
+              </Box>
+            </motion.div>
 
-              <Box sx={{ color: "#ef4444", minHeight: 20 }}>{error}</Box>
+            <motion.div
+              {...fadeUp(0.4)}
+              style={{ position: "relative", zIndex: 1 }}
+            >
+              <Box sx={{ fontSize: "0.85rem", color: "rgba(148,163,184,0.6)" }}>
+                Private, fast, and built for calm conversations.
+              </Box>
+            </motion.div>
+          </Grid>
 
-              <Button
-                type="button"
-                fullWidth
-                variant="contained"
-                sx={{ mt: 3, mb: 2 }}
-                onClick={handleAuth}
+          {/* ---- right panel ---- */}
+          <Grid
+            size={{ xs: 12, sm: 8, md: 5 }}
+            component={Paper}
+            elevation={0}
+            square
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "linear-gradient(165deg, #0c1221 0%, #060a13 60%)",
+            }}
+          >
+            <motion.div
+              {...fadeUp(0.15)}
+              style={{
+                width: "100%",
+                display: "flex",
+                justifyContent: "center",
+              }}
+            >
+              <Box
+                sx={{
+                  my: 6,
+                  mx: { xs: 3, sm: 5 },
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "stretch",
+                  width: "100%",
+                  maxWidth: 420,
+                  background: "rgba(15,23,42,0.45)",
+                  backdropFilter: "blur(24px)",
+                  WebkitBackdropFilter: "blur(24px)",
+                  borderRadius: "28px",
+                  border: "1px solid rgba(148,163,184,0.12)",
+                  boxShadow: "0 24px 48px rgba(0,0,0,0.45)",
+                  p: { xs: 3, sm: 4 },
+                  position: "relative",
+                  overflow: "hidden",
+                  "&::before": {
+                    content: '""',
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: "1px",
+                    background:
+                      "linear-gradient(90deg, transparent, rgba(99,102,241,0.4), transparent)",
+                  },
+                }}
               >
-                {formState === 0 ? "Login " : "Register"}
-              </Button>
-            </Box>
-          </Box>
-        </Grid>
-      </Grid>
+                <motion.div {...fadeUp(0.25)}>
+                  <Avatar
+                    sx={{
+                      mb: 2,
+                      bgcolor: "rgba(99,102,241,0.15)",
+                      color: "#818cf8",
+                      border: "1px solid rgba(99,102,241,0.3)",
+                    }}
+                  >
+                    <LockOutlinedIcon />
+                  </Avatar>
+                </motion.div>
 
-      <Snackbar open={open} autoHideDuration={4000} message={message} />
-    </ThemeProvider>
+                <motion.div {...fadeUp(0.3)}>
+                  <Box sx={{ mb: 3, display: "flex", gap: 1 }}>
+                    <Button
+                      variant={formState === 0 ? "contained" : "outlined"}
+                      onClick={() => setFormState(0)}
+                      sx={{
+                        borderRadius: "999px",
+                        textTransform: "none",
+                        fontWeight: 600,
+                        px: 2.5,
+                        ...(formState === 0
+                          ? {
+                              background:
+                                "linear-gradient(135deg, #3b82f6, #6366f1)",
+                              boxShadow: "0 6px 20px rgba(99,102,241,0.35)",
+                            }
+                          : {
+                              borderColor: "rgba(148,163,184,0.22)",
+                              color: "rgba(226,232,240,0.72)",
+                              "&:hover": {
+                                borderColor: "rgba(148,163,184,0.35)",
+                                background: "rgba(148,163,184,0.06)",
+                              },
+                            }),
+                      }}
+                    >
+                      Sign In
+                    </Button>
+                    <Button
+                      variant={formState === 1 ? "contained" : "outlined"}
+                      onClick={() => setFormState(1)}
+                      sx={{
+                        borderRadius: "999px",
+                        textTransform: "none",
+                        fontWeight: 600,
+                        px: 2.5,
+                        ...(formState === 1
+                          ? {
+                              background:
+                                "linear-gradient(135deg, #3b82f6, #6366f1)",
+                              boxShadow: "0 6px 20px rgba(99,102,241,0.35)",
+                            }
+                          : {
+                              borderColor: "rgba(148,163,184,0.22)",
+                              color: "rgba(226,232,240,0.72)",
+                              "&:hover": {
+                                borderColor: "rgba(148,163,184,0.35)",
+                                background: "rgba(148,163,184,0.06)",
+                              },
+                            }),
+                      }}
+                    >
+                      Sign Up
+                    </Button>
+                  </Box>
+                </motion.div>
+
+                <Box
+                  component="form"
+                  noValidate
+                  sx={{ mt: 1 }}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleAuth();
+                  }}
+                >
+                  <AnimatePresence mode="wait">
+                    {formState === 1 && (
+                      <motion.div
+                        key="name-field"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <TextField
+                          margin="normal"
+                          required
+                          fullWidth
+                          id="fullname"
+                          label="Full Name"
+                          name="fullname"
+                          value={name}
+                          autoFocus
+                          size="small"
+                          onChange={(e) => setName(e.target.value)}
+                          sx={textFieldSx}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <TextField
+                    margin="normal"
+                    required
+                    fullWidth
+                    id="username"
+                    label="Username"
+                    name="username"
+                    value={username}
+                    autoFocus={formState === 0}
+                    size="small"
+                    onChange={(e) => setUsername(e.target.value)}
+                    sx={textFieldSx}
+                  />
+                  <TextField
+                    margin="normal"
+                    required
+                    fullWidth
+                    name="password"
+                    label="Password"
+                    value={password}
+                    type="password"
+                    size="small"
+                    autoComplete="current-password"
+                    onChange={(e) => setPassword(e.target.value)}
+                    id="password"
+                    sx={textFieldSx}
+                  />
+
+                  <AnimatePresence>
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.25 }}
+                      >
+                        <Box
+                          sx={{
+                            color: "#fca5a5",
+                            background: "rgba(239,68,68,0.08)",
+                            borderRadius: "10px",
+                            p: 1,
+                            mt: 1,
+                            fontSize: "0.875rem",
+                            border: "1px solid rgba(239,68,68,0.2)",
+                          }}
+                        >
+                          {error}
+                        </Box>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <motion.div
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Button
+                      type="submit"
+                      fullWidth
+                      variant="contained"
+                      sx={{
+                        mt: 3,
+                        mb: 2,
+                        borderRadius: "12px",
+                        textTransform: "none",
+                        fontWeight: 700,
+                        fontSize: "0.95rem",
+                        py: 1.2,
+                        background: "linear-gradient(135deg, #3b82f6, #6366f1)",
+                        boxShadow: "0 8px 24px rgba(99,102,241,0.35)",
+                        "&:hover": {
+                          boxShadow: "0 12px 32px rgba(99,102,241,0.45)",
+                        },
+                      }}
+                    >
+                      {formState === 0 ? "Login" : "Register"}
+                    </Button>
+                  </motion.div>
+                </Box>
+              </Box>
+            </motion.div>
+          </Grid>
+        </Grid>
+
+        <Snackbar open={open} autoHideDuration={4000} message={message} />
+      </ThemeProvider>
+    </PageTransition>
   );
 }

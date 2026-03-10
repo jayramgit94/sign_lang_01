@@ -1,25 +1,65 @@
+import { AnimatePresence } from "framer-motion";
+import { SnackbarProvider } from "notistack";
+import {
+  Route,
+  BrowserRouter as Router,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import "./App.css";
-import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
-import LandingPage from "./pages/landing";
-import Authentication from "./pages/authentication";
+import ErrorBoundary from "./components/common/ErrorBoundary";
+import ProtectedRoute from "./components/common/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
-import VideoMeetComponent from "./pages/VideoMeet";
-import HomeComponent from "./pages/home";
+import Authentication from "./pages/authentication";
 import History from "./pages/history";
+import HomeComponent from "./pages/home";
+import LandingPage from "./pages/landing";
+import VideoMeetComponent from "./pages/VideoMeet";
+
+function AnimatedRoutes() {
+  const location = useLocation();
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/auth" element={<Authentication />} />
+        <Route
+          path="/home"
+          element={
+            <ProtectedRoute>
+              <HomeComponent />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/history"
+          element={
+            <ProtectedRoute>
+              <History />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/:url" element={<VideoMeetComponent />} />
+      </Routes>
+    </AnimatePresence>
+  );
+}
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/auth" element={<Authentication />} />
-          <Route path="/home" element={<HomeComponent />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/:url" element={<VideoMeetComponent />} />
-        </Routes>
-      </AuthProvider>
-    </Router>
+    <ErrorBoundary>
+      <SnackbarProvider
+        maxSnack={3}
+        autoHideDuration={3000}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+      >
+        <Router>
+          <AuthProvider>
+            <AnimatedRoutes />
+          </AuthProvider>
+        </Router>
+      </SnackbarProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -1,7 +1,9 @@
 {
-  "Hello": 0,
-  "I Love You": 1,
-  "No": 2,
-  "Thank You": 3,
-  "Yes": 4
+  "Goodbye": 0,
+  "Hello": 1,
+  "I Love You": 2,
+  "No": 3,
+  "Thank You": 4,
+  "Yes": 5,
+  "fuck you!": 6
 }

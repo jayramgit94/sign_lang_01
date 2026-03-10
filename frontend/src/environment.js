@@ -7,9 +7,13 @@ const isProd =
     window.location.hostname !== "127.0.0.1");
 
 // Get server URL from environment variables or use defaults
-// VITE_BACKEND_URL must be set in Vercel env vars for production
+// VITE_API_URL must be set in Vercel env vars for production
 // Example: https://zoom-backend-xxxx.onrender.com
-const rawBackendUrl = (import.meta.env.VITE_BACKEND_URL || "").trim();
+const rawBackendUrl = (
+  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_BACKEND_URL ||
+  ""
+).trim();
 
 const server = isProd
   ? rawBackendUrl || ""
@@ -19,7 +23,7 @@ const normalizedServer = server.endsWith("/") ? server.slice(0, -1) : server;
 
 if (isProd && !normalizedServer) {
   console.error(
-    "Missing VITE_BACKEND_URL. Set it in Vercel environment variables.",
+    "Missing VITE_API_URL. Set it in Vercel environment variables.",
   );
 }
 

@@ -3,6 +3,39 @@
    Chat · People · Predictions · Panels · Mobile-ready
    ========================================================= */
 
+// =========== LOAD SIGNS DYNAMICALLY ===========
+(async function loadSigns() {
+  try {
+    const res = await fetch("/api/classes");
+    const data = await res.json();
+    const signs = data.signs || {};
+
+    // Join screen chips
+    const joinDiv = document.getElementById("joinGestures");
+    if (joinDiv) {
+      joinDiv.innerHTML = Object.entries(signs)
+        .map(
+          ([name, info]) =>
+            `<span class="join-chip">${info.emoji || ""} ${name}</span>`,
+        )
+        .join("");
+    }
+
+    // Signs panel grid
+    const grid = document.getElementById("signsGrid");
+    if (grid) {
+      grid.innerHTML = Object.entries(signs)
+        .map(
+          ([name, info]) =>
+            `<div class="sign-card"><span class="sign-emoji">${info.emoji || ""}</span><span class="sign-name">${name}</span></div>`,
+        )
+        .join("");
+    }
+  } catch (e) {
+    console.log("Could not load signs from server:", e.message);
+  }
+})();
+
 // =========== DOM REFS ===========
 const $ = (s) => document.getElementById(s);
 const joinScreen = $("joinScreen");
@@ -145,6 +178,26 @@ sio.on("chat_message", (data) => {
 
 // Prediction result
 sio.on("prediction", handlePrediction);
+
+// Corrected sentence from Grok API
+sio.on("corrected_sentence", (data) => {
+  console.log("[Sentence]", data.raw, "→", data.corrected);
+  const sentenceEl = $("sentenceBox");
+  if (sentenceEl) {
+    sentenceEl.textContent = data.corrected;
+    sentenceEl.classList.add("show");
+    setTimeout(() => sentenceEl.classList.remove("show"), 8000);
+  }
+  // Also add to history
+  const t = new Date().toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  historyItems.unshift({ label: `💬 ${data.corrected}`, score: 1.0, time: t });
+  if (historyItems.length > HISTORY_MAX) historyItems.pop();
+  renderHistory();
+});
 
 // =========================================================
 //  PREDICTION DISPLAY (smoothed)

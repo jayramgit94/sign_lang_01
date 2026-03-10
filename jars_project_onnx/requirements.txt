@@ -8,3 +8,5 @@ flask
 flask-socketio 
 numpy
 eventlet
+scikit-learn
+python-dotenv

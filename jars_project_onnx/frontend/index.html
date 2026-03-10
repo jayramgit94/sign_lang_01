@@ -50,12 +50,8 @@
           <span class="material-icons-round">videocam</span>
           Join Room
         </button>
-        <div class="join-gestures">
-          <span class="join-chip">👋 Hello</span>
-          <span class="join-chip">👍 Yes</span>
-          <span class="join-chip">👎 No</span>
-          <span class="join-chip">🙏 Thank You</span>
-          <span class="join-chip">🤟 I Love You</span>
+        <div class="join-gestures" id="joinGestures">
+          <!-- Loaded dynamically from /api/classes -->
         </div>
       </div>
     </div>
@@ -158,27 +154,8 @@
           <div class="panel-content" data-content="signs">
             <div class="signs-section">
               <div class="signs-title">Supported Gestures</div>
-              <div class="signs-grid">
-                <div class="sign-card">
-                  <span class="sign-emoji">👋</span
-                  ><span class="sign-name">Hello</span>
-                </div>
-                <div class="sign-card">
-                  <span class="sign-emoji">👍</span
-                  ><span class="sign-name">Yes</span>
-                </div>
-                <div class="sign-card">
-                  <span class="sign-emoji">👎</span
-                  ><span class="sign-name">No</span>
-                </div>
-                <div class="sign-card">
-                  <span class="sign-emoji">🙏</span
-                  ><span class="sign-name">Thank You</span>
-                </div>
-                <div class="sign-card">
-                  <span class="sign-emoji">🤟</span
-                  ><span class="sign-name">I Love You</span>
-                </div>
+              <div class="signs-grid" id="signsGrid">
+                <!-- Loaded dynamically from /api/classes -->
               </div>
             </div>
             <div class="signs-section">

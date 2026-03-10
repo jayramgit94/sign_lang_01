@@ -1,0 +1,51 @@
+{
+  "signs": {
+    "Hello": {
+      "emoji": "👋"
+    },
+    "Yes": {
+      "emoji": "👍"
+    },
+    "No": {
+      "emoji": "👎"
+    },
+    "Thank You": {
+      "emoji": "🙏"
+    },
+    "I Love You": {
+      "emoji": "🤟"
+    },
+    "Goodbye": {
+      "emoji": ""
+    },
+    "fuck you!": {
+      "emoji": ""
+    }
+  },
+  "capture": {
+    "camera_index": 0,
+    "target_frames": 800,
+    "min_hand_confidence": 0.6,
+    "min_face_confidence": 0.6
+  },
+  "training": {
+    "algorithm": "mlp",
+    "epochs": 50,
+    "batch_size": 64,
+    "learning_rate": 0.001,
+    "patience": 10,
+    "dropout": 0.3,
+    "hidden_layers": [
+      512,
+      256
+    ],
+    "augmentation_factor": 3,
+    "test_split": 0.2,
+    "weight_decay": 0.0001
+  },
+  "vector": {
+    "hand_points": 42,
+    "face_points": 468,
+    "total": 1530
+  }
+}
