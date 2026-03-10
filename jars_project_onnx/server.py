@@ -10,9 +10,11 @@ import eventlet
 
 eventlet.monkey_patch()  # Monkey patch for eventlet async support
 
-from dotenv import load_dotenv
-
-load_dotenv(override=True)  # Load .env before anything reads os.getenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+except ImportError:
+    pass  # On Render, env vars are set via dashboard
 
 import json
 import os
@@ -90,27 +92,33 @@ with open(CLASSES_PATH, encoding="utf-8") as f:
 inv_classes = {int(v): k for k, v in classes_map.items()}
 
 # ============ LOAD ONNX MODEL ============
-# ONNX: Open Neural Network Exchange format (portable, optimized inference)
-# Load pre-trained model for real-time inference on landmarks
 print("Loading ONNX model...")
-session_options = ort.SessionOptions()
-session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-cpu_count = os.cpu_count() or 1
-session_options.intra_op_num_threads = max(1, cpu_count - 1)
-session_options.inter_op_num_threads = 1
-session = ort.InferenceSession(
-    MODEL_PATH,
-    sess_options=session_options,
-    providers=["CPUExecutionProvider"],
-)
-# Cache input/output metadata
-onnx_input = session.get_inputs()[0]
-onnx_output = session.get_outputs()[0]
-onnx_input_name = onnx_input.name
-onnx_output_name = onnx_output.name
-expected_dim = onnx_input.shape[-1]
-print("Loaded model:", MODEL_PATH)
-print("Input:", onnx_input_name, "Output:", onnx_output_name)
+session = None
+onnx_input_name = None
+onnx_output_name = None
+expected_dim = None
+
+if not os.path.exists(MODEL_PATH):
+    print(f"WARNING: Model file not found at {MODEL_PATH}")
+    print("Server will start but predictions will be unavailable.")
+else:
+    session_options = ort.SessionOptions()
+    session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+    cpu_count = os.cpu_count() or 1
+    session_options.intra_op_num_threads = max(1, cpu_count - 1)
+    session_options.inter_op_num_threads = 1
+    session = ort.InferenceSession(
+        MODEL_PATH,
+        sess_options=session_options,
+        providers=["CPUExecutionProvider"],
+    )
+    onnx_input = session.get_inputs()[0]
+    onnx_output = session.get_outputs()[0]
+    onnx_input_name = onnx_input.name
+    onnx_output_name = onnx_output.name
+    expected_dim = onnx_input.shape[-1]
+    print("Loaded model:", MODEL_PATH)
+    print("Input:", onnx_input_name, "Output:", onnx_output_name)
 
 # ============ FLASK + SOCKETIO SETUP ============
 app = Flask(__name__, static_folder="frontend")
@@ -287,6 +295,11 @@ def handle_landmark(data):
       8. Send prediction back to client
     """
     try:
+        # Check if model is loaded
+        if session is None:
+            emit("prediction", {"error": "Model not loaded on server"})
+            return
+
         # Get landmark vector from client
         vec = data.get("vector")
         if vec is None:

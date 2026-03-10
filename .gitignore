@@ -35,12 +35,11 @@ JARS PROJECT ONNX/env/
 # Coverage
 coverage/
 
-# SignLang AI
+# SignLang AI — large training data (not needed for server)
 jars_project_onnx/mp_models/
 jars_project_onnx/data_processed/
 jars_project_onnx/data_raw/
 jars_project_onnx/model/*.pth
-jars_project_onnx/model/*.onnx.data
 
 # Package locks (auto-generated, not needed in repo)
 frontend/package-lock.json
