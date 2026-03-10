@@ -3,9 +3,11 @@
  */
 import axios from "axios";
 
-const API_BASE =
+const API_BASE = (
   import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? "http://localhost:8001" : "");
+  import.meta.env.VITE_BACKEND_URL ||
+  (import.meta.env.DEV ? "http://localhost:8001" : "")
+).replace(/\/+$/, "");
 
 const api = axios.create({
   baseURL: `${API_BASE}/api/v1`,
