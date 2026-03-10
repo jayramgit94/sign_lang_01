@@ -2,12 +2,10 @@
  * Socket Service — Singleton Socket.IO connection manager.
  */
 import { io } from "socket.io-client";
+import server from "../environment";
+import { getAccessToken } from "./tokenStore";
 
-const SOCKET_URL = (
-  import.meta.env.VITE_API_URL ||
-  import.meta.env.VITE_BACKEND_URL ||
-  (import.meta.env.DEV ? "http://localhost:8001" : "")
-).replace(/\/+$/, "");
+const SOCKET_URL = server;
 
 let socket = null;
 
@@ -31,6 +29,7 @@ export const getSocket = (username) => {
     timeout: 10000,
     auth: {
       username: username || "Guest",
+      token: getAccessToken() || undefined,
     },
   });
 

@@ -5,6 +5,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
+import {
+  clearAllTokens,
+  getRefreshToken,
+  setAccessToken,
+  setRefreshToken,
+} from "../services/tokenStore";
 import { AuthContext } from "./AuthContextType";
 
 export const AuthProvider = ({ children }) => {
@@ -12,14 +18,33 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const router = useNavigate();
 
-  // Check auth status on mount (cookie-based — no localStorage)
+  // Check auth status on mount — tries cookie first, then token refresh fallback
   useEffect(() => {
     const checkAuth = async () => {
       try {
         const res = await api.get("/auth/me");
         setUserData(res.data.user);
       } catch {
+        // Access token missing/expired — try refreshing with stored refresh token
+        const storedRefresh = getRefreshToken();
+        if (storedRefresh) {
+          try {
+            const refreshRes = await api.post("/auth/refresh", {
+              refreshToken: storedRefresh,
+            });
+            if (refreshRes.data.accessToken) {
+              setAccessToken(refreshRes.data.accessToken);
+            }
+            // Retry auth check with new token
+            const retryRes = await api.get("/auth/me");
+            setUserData(retryRes.data.user);
+            return;
+          } catch {
+            // Refresh also failed — user is truly unauthenticated
+          }
+        }
         setUserData(null);
+        clearAllTokens();
       } finally {
         setLoading(false);
       }
@@ -42,6 +67,8 @@ export const AuthProvider = ({ children }) => {
         username,
         password,
       });
+      if (res.data.accessToken) setAccessToken(res.data.accessToken);
+      if (res.data.refreshToken) setRefreshToken(res.data.refreshToken);
       setUserData(res.data.user);
       return { success: true, message: "Registration successful." };
     } catch (error) {
@@ -59,6 +86,8 @@ export const AuthProvider = ({ children }) => {
   const handleLogin = async (username, password) => {
     try {
       const res = await api.post("/auth/login", { username, password });
+      if (res.data.accessToken) setAccessToken(res.data.accessToken);
+      if (res.data.refreshToken) setRefreshToken(res.data.refreshToken);
       setUserData(res.data.user);
       router("/home");
       return { success: true, message: "Login successful." };
@@ -80,6 +109,7 @@ export const AuthProvider = ({ children }) => {
       // Logout even if request fails
     }
     setUserData(null);
+    clearAllTokens();
     router("/");
   }, [router]);
 

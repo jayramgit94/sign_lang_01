@@ -41,6 +41,8 @@ export const register = async (req, res, next) => {
     res.status(201).json({
       message: "Registration successful.",
       user: user.toJSON(),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
     });
   } catch (err) {
     next(err);
@@ -77,6 +79,8 @@ export const login = async (req, res, next) => {
     res.status(200).json({
       message: "Login successful.",
       user: user.toJSON(),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
     });
   } catch (err) {
     next(err);
@@ -88,7 +92,8 @@ export const login = async (req, res, next) => {
  */
 export const refresh = async (req, res, next) => {
   try {
-    const refreshToken = req.cookies?.refreshToken;
+    // Accept refresh token from cookie or request body (cross-origin fallback)
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
     if (!refreshToken) {
       return res.status(401).json({ message: "No refresh token." });
@@ -113,7 +118,9 @@ export const refresh = async (req, res, next) => {
 
     res.cookie("accessToken", newAccessToken, cookieOptions.access);
 
-    res.status(200).json({ message: "Token refreshed." });
+    res
+      .status(200)
+      .json({ message: "Token refreshed.", accessToken: newAccessToken });
   } catch (err) {
     next(err);
   }

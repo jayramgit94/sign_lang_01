@@ -1,13 +1,12 @@
 /**
- * API Service — Axios instance with interceptors for JWT cookie auth.
+ * API Service — Axios instance with interceptors for JWT auth.
+ * Uses cookies as primary auth + Authorization header as cross-origin fallback.
  */
 import axios from "axios";
+import server from "../environment";
+import { getAccessToken, getRefreshToken, setAccessToken } from "./tokenStore";
 
-const API_BASE = (
-  import.meta.env.VITE_API_URL ||
-  import.meta.env.VITE_BACKEND_URL ||
-  (import.meta.env.DEV ? "http://localhost:8001" : "")
-).replace(/\/+$/, "");
+const API_BASE = server;
 
 const api = axios.create({
   baseURL: `${API_BASE}/api/v1`,
@@ -16,6 +15,15 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+});
+
+// Request interceptor — attach Authorization header as fallback for cross-origin
+api.interceptors.request.use((config) => {
+  const token = getAccessToken();
+  if (token && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 // Response interceptor — auto-refresh token on 401
@@ -58,11 +66,14 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        await axios.post(
+        const refreshRes = await axios.post(
           `${API_BASE}/api/v1/auth/refresh`,
-          {},
+          { refreshToken: getRefreshToken() },
           { withCredentials: true },
         );
+        if (refreshRes.data.accessToken) {
+          setAccessToken(refreshRes.data.accessToken);
+        }
         processQueue(null);
         return api(originalRequest);
       } catch (refreshError) {

@@ -1,16 +1,26 @@
 /**
  * JWT Authentication Middleware
- * - Extracts accessToken from httpOnly cookie
+ * - Extracts accessToken from httpOnly cookie or Authorization header
  * - Verifies and attaches decoded user to req.user
  * - Optional mode: sets req.user if present, skips if not
  */
 import { verifyAccessToken } from "../services/jwt.service.js";
 
 /**
+ * Extract token from cookie first, then Authorization header (cross-origin fallback).
+ */
+const getTokenFromRequest = (req) => {
+  if (req.cookies?.accessToken) return req.cookies.accessToken;
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) return authHeader.slice(7);
+  return null;
+};
+
+/**
  * Require authentication — rejects request if token is missing/invalid.
  */
 export const requireAuth = (req, res, next) => {
-  const token = req.cookies?.accessToken;
+  const token = getTokenFromRequest(req);
 
   if (!token) {
     return res.status(401).json({ message: "Authentication required." });
@@ -29,7 +39,7 @@ export const requireAuth = (req, res, next) => {
  * Optional authentication — attaches user if token present, continues either way.
  */
 export const optionalAuth = (req, res, next) => {
-  const token = req.cookies?.accessToken;
+  const token = getTokenFromRequest(req);
   if (token) {
     const decoded = verifyAccessToken(token);
     if (decoded) req.user = decoded;
