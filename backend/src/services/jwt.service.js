@@ -71,7 +71,7 @@ export const cookieOptions = {
     secure: config.isProd,
     sameSite: config.isProd ? "none" : "lax",
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    path: "/api/v1/auth/refresh",
+    path: "/",
   },
 };
 
@@ -87,6 +87,14 @@ export const setTokenCookies = (res, accessToken, refreshToken) => {
  * Clear both token cookies.
  */
 export const clearTokenCookies = (res) => {
-  res.clearCookie("accessToken", { path: "/" });
-  res.clearCookie("refreshToken", { path: "/api/v1/auth/refresh" });
+  res.clearCookie("accessToken", {
+    path: "/",
+    secure: config.isProd,
+    sameSite: config.isProd ? "none" : "lax",
+  });
+  res.clearCookie("refreshToken", {
+    path: "/",
+    secure: config.isProd,
+    sameSite: config.isProd ? "none" : "lax",
+  });
 };

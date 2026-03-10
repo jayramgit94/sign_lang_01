@@ -37,6 +37,9 @@ import { initializeSocket } from "./controllers/socket/index.js";
 const app = express();
 const server = createServer(app);
 
+// Trust proxy (Render / Heroku / Vercel reverse proxy)
+app.set("trust proxy", 1);
+
 // ─── Security ────────────────────────────────────────────────────
 app.use(
   helmet({

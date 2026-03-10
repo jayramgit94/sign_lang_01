@@ -12,6 +12,7 @@ eventlet.monkey_patch()  # Monkey patch for eventlet async support
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv(override=True)
 except ImportError:
     pass  # On Render, env vars are set via dashboard
