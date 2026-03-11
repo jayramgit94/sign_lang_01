@@ -131,7 +131,10 @@ _serve_port = int(os.getenv("PORT", "5000"))
 _default_origins = (
     f"http://localhost:{_serve_port},http://127.0.0.1:{_serve_port},"
     "http://localhost:3000,http://localhost:8000,"
-    "http://127.0.0.1:3000,http://127.0.0.1:8000"
+    "http://127.0.0.1:3000,http://127.0.0.1:8000,"
+    "https://sign-lang-01.vercel.app,"
+    "https://signlang-ai.onrender.com,"
+    "https://chat.jayram.me"
 )
 ALLOWED_ORIGINS = [
     o.strip()

@@ -4,6 +4,8 @@ import eventlet
 
 eventlet.monkey_patch()
 
-bind = "0.0.0.0:10000"
+import os
+
+bind = f"0.0.0.0:{os.getenv('PORT', '5000')}"
 worker_class = "eventlet"
 workers = 1
