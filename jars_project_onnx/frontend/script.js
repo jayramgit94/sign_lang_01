@@ -90,6 +90,8 @@ const SMOOTHING_WINDOW = 3;
 let username = "Guest";
 let lastSentTime = 0;
 let handLandmarks = [];
+let leftHandLandmarks = [];
+let rightHandLandmarks = [];
 let faceLandmarks = [];
 let showLandmarks = true;
 let isMirrored = true;
@@ -107,7 +109,10 @@ let mpInitialized = false;
 // =========== AUTO-DETECT SERVER URL ===========
 const SERVER_URL = (() => {
   const h = window.location.hostname;
-  if (h === "localhost" || h === "127.0.0.1") return "http://localhost:5000";
+  if (h === "localhost" || h === "127.0.0.1") {
+    // Use the same port as the page if served by Flask, else default 5000
+    return window.location.origin;
+  }
   return window.location.origin;
 })();
 
@@ -480,10 +485,13 @@ function initMediaPipe() {
   });
   holistic.onResults((results) => {
     latestResults = results;
-    if (results.rightHandLandmarks) handLandmarks = results.rightHandLandmarks;
-    else if (results.leftHandLandmarks)
-      handLandmarks = results.leftHandLandmarks;
-    else handLandmarks = [];
+    // Track both hands separately to match training data format
+    leftHandLandmarks = results.leftHandLandmarks || [];
+    rightHandLandmarks = results.rightHandLandmarks || [];
+    // Keep combined for backward compat (detection check)
+    handLandmarks = rightHandLandmarks.length
+      ? rightHandLandmarks
+      : leftHandLandmarks;
     faceLandmarks = results.faceLandmarks || [];
   });
 
@@ -497,7 +505,11 @@ function initMediaPipe() {
       const ctx = canvas.getContext("2d");
       ctx.drawImage(video, 0, 0, vw, vh);
       await holistic.send({ image: canvas });
-      drawOverlay();
+      try {
+        drawOverlay();
+      } catch (e) {
+        /* don't block predictions */
+      }
       sendToServer();
       // FPS
       frameCount++;
@@ -569,19 +581,34 @@ function flattenLandmarks(arr) {
 function sendToServer() {
   const now = performance.now();
   if (now - lastSentTime < SEND_INTERVAL_MS) return;
-  if (!handLandmarks.length) {
-    labelBox.textContent = "Show your hand…";
+  if (!sio.connected) {
+    labelBox.textContent = "Connecting…";
+    labelBox.className = "pred-main no-hand";
+    scoreBox.textContent = "Waiting for server";
+    confidenceBar.style.width = "0%";
+    return;
+  }
+  if (!leftHandLandmarks.length && !rightHandLandmarks.length) {
+    labelBox.textContent = "Show your hand\u2026";
     labelBox.className = "pred-main no-hand";
     scoreBox.textContent = "";
     confidenceBar.style.width = "0%";
     return;
   }
-  let hv = flattenLandmarks(handLandmarks);
-  let fv = faceLandmarks.length ? flattenLandmarks(faceLandmarks) : [];
+  // Build vector matching training format: [allHands(42pts=126), face(468pts=1404)] = 1530
+  // Training uses mp.solutions.hands which iterates detected hands in order
+  // Holistic gives left/right separately — combine both
+  let hv = [];
+  if (leftHandLandmarks.length) hv.push(...flattenLandmarks(leftHandLandmarks));
+  if (rightHandLandmarks.length)
+    hv.push(...flattenLandmarks(rightHandLandmarks));
   hv = hv.slice(0, 126);
-  fv = fv.slice(0, 1404);
   while (hv.length < 126) hv.push(0);
+
+  let fv = faceLandmarks.length ? flattenLandmarks(faceLandmarks) : [];
+  fv = fv.slice(0, 1404);
   while (fv.length < 1404) fv.push(0);
+
   const full = hv.concat(fv).slice(0, 1530);
   sio.emit("landmark", { vector: full, normalized: false });
   lastSentTime = now;

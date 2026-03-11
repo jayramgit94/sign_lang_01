@@ -4,15 +4,21 @@ Usage:
   Local:   python test_client.py
   Render:  python test_client.py https://your-app-name.onrender.com
 """
+import os
 import sys
 import socketio
 import numpy as np
 
 # Use command-line arg for URL, default to localhost
-SERVER_URL = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:5000"
+SERVER_URL = (
+    sys.argv[1]
+    if len(sys.argv) > 1
+    else f"http://127.0.0.1:{os.environ.get('PORT', '5000')}"
+)
 print(f"Connecting to: {SERVER_URL}")
 
 sio = socketio.Client()
+
 
 @sio.event
 def connect():
@@ -22,14 +28,13 @@ def connect():
     vec = (np.random.rand(1530) - 0.5).tolist()
 
     print("Sending landmark data (1530 values)...")
-    sio.emit("landmark", {
-        "vector": vec,
-        "normalized": False
-    })
+    sio.emit("landmark", {"vector": vec, "normalized": False})
+
 
 @sio.event
 def connect_error(msg):
     print("Connection failed!", msg)
+
 
 @sio.on("prediction")
 def on_prediction(data):
@@ -40,9 +45,11 @@ def on_prediction(data):
         print(f"  -> Error: {data['error']}")
     sio.disconnect()
 
+
 @sio.event
 def disconnect():
     print("Disconnected")
+
 
 sio.connect(SERVER_URL, transports=["polling"], wait_timeout=15)
 

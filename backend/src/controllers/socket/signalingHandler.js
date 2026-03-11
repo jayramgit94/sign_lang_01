@@ -83,7 +83,7 @@ export const registerSignalingHandlers = (io, socket) => {
    * Broadcast caption/sign language text to room peers.
    */
   socket.on("caption", (data) => {
-    const { text, score } = data || {};
+    const { text, score, isSentence } = data || {};
     if (!text) return;
 
     const roomCode = roomService.getSocketRoom(socket.id);
@@ -94,6 +94,7 @@ export const registerSignalingHandlers = (io, socket) => {
       username: socket.username,
       text,
       score: score || 0,
+      isSentence: !!isSentence,
       timestamp: Date.now(),
     });
   });

@@ -125,10 +125,19 @@ else:
 app = Flask(__name__, static_folder="frontend")
 
 # Allowed CORS origins — restrict to known frontends
-ALLOWED_ORIGINS = os.getenv(
-    "CORS_ORIGINS",
-    "http://localhost:3000,http://localhost:8000,http://127.0.0.1:3000,http://127.0.0.1:8000",
-).split(",")
+# In production (Render), set CORS_ORIGINS env var to your frontend domains
+# e.g. "https://chat.jayram.me,https://sign-lang-01.vercel.app"
+_serve_port = int(os.getenv("PORT", "5000"))
+_default_origins = (
+    f"http://localhost:{_serve_port},http://127.0.0.1:{_serve_port},"
+    "http://localhost:3000,http://localhost:8000,"
+    "http://127.0.0.1:3000,http://127.0.0.1:8000"
+)
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv("CORS_ORIGINS", _default_origins).split(",")
+    if o.strip()
+]
 
 socketio = SocketIO(
     app,
@@ -137,6 +146,7 @@ socketio = SocketIO(
     max_http_buffer_size=1_000_000,  # 1 MB max message size
     ping_timeout=30,
     ping_interval=15,
+    allow_upgrades=True,
 )
 
 # ============ CONNECTION RATE LIMITING ============
@@ -361,7 +371,10 @@ if __name__ == "__main__":
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "5000"))
     print(f"Starting server on http://{host}:{port}")
+    print(
+        f"Model classes: {len(inv_classes)}, Output dim: {session.get_outputs()[0].shape if session else 'N/A'}"
+    )
+    print(f"CORS origins: {ALLOWED_ORIGINS}")
     # socketio.run: Start Flask+SocketIO server
     # host="0.0.0.0": Listen on all network interfaces
-    # port=5000: Use port 5000
     socketio.run(app, host=host, port=port)

@@ -50,7 +50,13 @@ const useSignLanguage = ({ localStream, socket, username }) => {
   useEffect(() => {
     if (!socket) return;
 
-    const handleCaption = ({ username: sender, text, score, timestamp }) => {
+    const handleCaption = ({
+      username: sender,
+      text,
+      score,
+      timestamp,
+      isSentence,
+    }) => {
       // Clear any existing timer for this sender
       const existingTimer = remoteCaptionTimersRef.current.get(sender);
       if (existingTimer) clearTimeout(existingTimer);
@@ -58,15 +64,16 @@ const useSignLanguage = ({ localStream, socket, username }) => {
       // Update or add caption for this sender (keep all other senders' captions)
       setRemoteCaptions((prev) => {
         const updated = prev.filter((c) => c.username !== sender);
-        updated.push({ username: sender, text, score, timestamp });
+        updated.push({ username: sender, text, score, timestamp, isSentence });
         return updated;
       });
 
-      // Set per-user auto-clear timer (5 seconds)
+      // Set per-user auto-clear timer (sentences stay longer)
+      const clearDelay = isSentence ? 8000 : 5000;
       const timerId = setTimeout(() => {
         setRemoteCaptions((prev) => prev.filter((c) => c.username !== sender));
         remoteCaptionTimersRef.current.delete(sender);
-      }, 5000);
+      }, clearDelay);
       remoteCaptionTimersRef.current.set(sender, timerId);
     };
 
@@ -84,7 +91,9 @@ const useSignLanguage = ({ localStream, socket, username }) => {
   // Connect to sign language inference server
   const connectSignServer = useCallback(() => {
     if (!SIGN_LANG_SERVER_URL) {
-      console.warn("[SignLang] No server URL configured.");
+      console.warn(
+        "[SignLang] No server URL configured. Set VITE_SIGN_LANG_URL.",
+      );
       return null;
     }
 
@@ -97,6 +106,8 @@ const useSignLanguage = ({ localStream, socket, username }) => {
 
     signSocket.on("connect", () => {
       console.log("[SignLang] Connected to inference server.");
+      // Register with sign server so it creates a SentenceBuilder for this user
+      signSocket.emit("user_join", { username: username || "Guest" });
     });
 
     // Server responds with { label, score } (or { error })
@@ -147,7 +158,7 @@ const useSignLanguage = ({ localStream, socket, username }) => {
 
     signSocketRef.current = signSocket;
     return signSocket;
-  }, [socket]);
+  }, [socket, username]);
 
   // Initialize MediaPipe Holistic and start processing
   const startRecognition = useCallback(async () => {
