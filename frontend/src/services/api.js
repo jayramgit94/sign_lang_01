@@ -4,7 +4,12 @@
  */
 import axios from "axios";
 import server from "../environment";
-import { getAccessToken, getRefreshToken, setAccessToken } from "./tokenStore";
+import {
+  getAccessToken,
+  getRefreshToken,
+  setAccessToken,
+  setRefreshToken,
+} from "./tokenStore";
 
 const API_BASE = server;
 
@@ -73,6 +78,9 @@ api.interceptors.response.use(
         );
         if (refreshRes.data.accessToken) {
           setAccessToken(refreshRes.data.accessToken);
+        }
+        if (refreshRes.data.refreshToken) {
+          setRefreshToken(refreshRes.data.refreshToken);
         }
         processQueue(null);
         return api(originalRequest);

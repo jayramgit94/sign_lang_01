@@ -43,6 +43,9 @@ export const AuthProvider = ({ children }) => {
             if (!cancelled && refreshRes.data.accessToken) {
               setAccessToken(refreshRes.data.accessToken);
             }
+            if (!cancelled && refreshRes.data.refreshToken) {
+              setRefreshToken(refreshRes.data.refreshToken);
+            }
             // Retry auth check with new token
             const retryRes = await api.get("/auth/me");
             if (!cancelled) setUserData(retryRes.data.user);
@@ -65,7 +68,12 @@ export const AuthProvider = ({ children }) => {
     const handleExpired = () => {
       setUserData(null);
       clearAllTokens();
-      routerRef.current("/auth");
+      // Don't rip user out of an active video call
+      const path = window.location.pathname;
+      const safeRoutes = ["/", "/auth", "/home", "/history"];
+      if (safeRoutes.includes(path)) {
+        routerRef.current("/auth");
+      }
     };
     window.addEventListener("auth:expired", handleExpired);
     return () => {
@@ -124,8 +132,8 @@ export const AuthProvider = ({ children }) => {
     }
     setUserData(null);
     clearAllTokens();
-    router("/");
-  }, [router]);
+    routerRef.current("/");
+  }, []);
 
   const getHistoryOfUser = async () => {
     try {

@@ -5,8 +5,8 @@
 import { User } from "../models/user.model.js";
 import {
   clearTokenCookies,
-  cookieOptions,
   generateAccessToken,
+  generateRefreshToken,
   generateTokenPair,
   setTokenCookies,
   verifyRefreshToken,
@@ -110,17 +110,26 @@ export const refresh = async (req, res, next) => {
       return res.status(401).json({ message: "Token reuse detected." });
     }
 
-    // Generate new access token
+    // Generate new tokens (rotation — old refresh token is invalidated)
     const newAccessToken = generateAccessToken({
       userId: user._id.toString(),
       username: user.username,
     });
+    const newRefreshToken = generateRefreshToken({
+      userId: user._id.toString(),
+      username: user.username,
+    });
 
-    res.cookie("accessToken", newAccessToken, cookieOptions.access);
+    user.refreshToken = newRefreshToken;
+    await user.save();
 
-    res
-      .status(200)
-      .json({ message: "Token refreshed.", accessToken: newAccessToken });
+    setTokenCookies(res, newAccessToken, newRefreshToken);
+
+    res.status(200).json({
+      message: "Token refreshed.",
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
   } catch (err) {
     next(err);
   }

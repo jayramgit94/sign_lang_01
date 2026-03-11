@@ -55,7 +55,7 @@ class ErrorBoundary extends React.Component {
           >
             Refresh Page
           </button>
-          {process.env.NODE_ENV !== "production" && this.state.error && (
+          {import.meta.env.MODE !== "production" && this.state.error && (
             <pre
               style={{
                 marginTop: "2rem",

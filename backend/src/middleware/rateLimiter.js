@@ -21,7 +21,7 @@ export const authLimiter = rateLimit({
   message: {
     message: "Too many authentication attempts. Please wait 15 minutes.",
   },
-  skipSuccessfulRequests: false,
+  skipSuccessfulRequests: true,
 });
 
 /** Strict limiter for sensitive operations: 5 / 15 min */

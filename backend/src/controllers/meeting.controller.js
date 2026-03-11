@@ -10,13 +10,18 @@ export const addToHistory = async (req, res, next) => {
   try {
     const { meetingCode } = req.body;
 
-    if (!meetingCode) {
+    if (!meetingCode || typeof meetingCode !== "string") {
       return res.status(400).json({ message: "Meeting code is required." });
+    }
+
+    const sanitized = meetingCode.trim().slice(0, 100);
+    if (!sanitized || !/^[\w-]+$/.test(sanitized)) {
+      return res.status(400).json({ message: "Invalid meeting code format." });
     }
 
     await Meeting.create({
       user_id: req.user.userId,
-      meetingCode,
+      meetingCode: sanitized,
     });
 
     res.status(201).json({ message: "Meeting recorded." });

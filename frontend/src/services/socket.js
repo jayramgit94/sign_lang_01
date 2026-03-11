@@ -27,9 +27,11 @@ export const getSocket = (username) => {
     reconnectionDelay: 1000,
     reconnectionDelayMax: 10000,
     timeout: 10000,
-    auth: {
-      username: username || "Guest",
-      token: getAccessToken() || undefined,
+    auth: (cb) => {
+      cb({
+        username: username || "Guest",
+        token: getAccessToken() || undefined,
+      });
     },
   });
 

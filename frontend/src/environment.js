@@ -1,10 +1,6 @@
 // Determine if running in production based on NODE_ENV or hostname
 const isProd =
-  import.meta.env.MODE === "production" ||
-  import.meta.env.PROD === true ||
-  (typeof window !== "undefined" &&
-    window.location.hostname !== "localhost" &&
-    window.location.hostname !== "127.0.0.1");
+  import.meta.env.MODE === "production" || import.meta.env.PROD === true;
 
 // Get server URL from environment variables or use defaults
 // VITE_API_URL must be set in Vercel env vars for production

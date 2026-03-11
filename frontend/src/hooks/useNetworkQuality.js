@@ -21,9 +21,10 @@ const useNetworkQuality = (connectionsRef) => {
     }
 
     let totalRtt = 0;
-    let totalLoss = 0;
+    let rttCount = 0;
+    let totalPacketsLost = 0;
+    let totalPacketsReceived = 0;
     let totalBandwidth = 0;
-    let count = 0;
 
     for (const pc of connections.values()) {
       if (pc.connectionState !== "connected") continue;
@@ -33,10 +34,11 @@ const useNetworkQuality = (connectionsRef) => {
         report.forEach((stat) => {
           if (stat.type === "candidate-pair" && stat.state === "succeeded") {
             totalRtt += stat.currentRoundTripTime || 0;
-            count++;
+            rttCount++;
           }
           if (stat.type === "inbound-rtp" && stat.kind === "video") {
-            totalLoss += stat.packetsLost || 0;
+            totalPacketsLost += stat.packetsLost || 0;
+            totalPacketsReceived += stat.packetsReceived || 0;
             totalBandwidth += stat.bytesReceived || 0;
           }
         });
@@ -45,23 +47,25 @@ const useNetworkQuality = (connectionsRef) => {
       }
     }
 
-    if (count === 0) return;
+    if (rttCount === 0) return;
 
-    const avgRtt = (totalRtt / count) * 1000; // Convert to ms
-    const avgLoss = totalLoss / count;
+    const avgRtt = (totalRtt / rttCount) * 1000; // Convert to ms
+    const totalPackets = totalPacketsLost + totalPacketsReceived;
+    const lossPercent =
+      totalPackets > 0 ? (totalPacketsLost / totalPackets) * 100 : 0;
 
     setStats({
       rtt: Math.round(avgRtt),
-      packetLoss: avgLoss,
+      packetLoss: Math.round(lossPercent * 10) / 10,
       bandwidth: totalBandwidth,
     });
 
     // Classify quality
-    if (avgRtt < 100 && avgLoss < 2) {
+    if (avgRtt < 100 && lossPercent < 2) {
       setQuality(CONNECTION_QUALITY.EXCELLENT);
-    } else if (avgRtt < 200 && avgLoss < 5) {
+    } else if (avgRtt < 200 && lossPercent < 5) {
       setQuality(CONNECTION_QUALITY.GOOD);
-    } else if (avgRtt < 400 && avgLoss < 10) {
+    } else if (avgRtt < 400 && lossPercent < 10) {
       setQuality(CONNECTION_QUALITY.FAIR);
     } else {
       setQuality(CONNECTION_QUALITY.POOR);

@@ -27,6 +27,8 @@ const useWebRTC = ({ socket, username }) => {
   const screenStreamRef = useRef(null);
   const makingOfferRef = useRef(new Set()); // Glare resolution
   const pendingCandidatesRef = useRef(new Map()); // socketId → [candidates]
+  const roomCodeRef = useRef(null); // For auto-rejoin on reconnect
+  const roomUsernameRef = useRef(null);
 
   // --- State ---
   const [localStream, setLocalStream] = useState(null);
@@ -412,6 +414,32 @@ const useWebRTC = ({ socket, username }) => {
     };
   }, [socket]);
 
+  // --- Re-join room on socket reconnect ---
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleReconnect = () => {
+      if (!roomCodeRef.current) return;
+
+      console.log(
+        `[WebRTC] Socket reconnected, re-joining room ${roomCodeRef.current}`,
+      );
+
+      // Clean up stale peer connections from before disconnect
+      for (const peerId of [...connectionsRef.current.keys()]) {
+        removePeerRef.current(peerId);
+      }
+
+      socket.emit("join-room", {
+        roomCode: roomCodeRef.current,
+        username: roomUsernameRef.current || "Guest",
+      });
+    };
+
+    socket.on("connect", handleReconnect);
+    return () => socket.off("connect", handleReconnect);
+  }, [socket]);
+
   // --- Start Local Stream ---
   const startLocalStream = useCallback(async () => {
     try {
@@ -528,6 +556,9 @@ const useWebRTC = ({ socket, username }) => {
         return;
       }
 
+      roomCodeRef.current = code;
+      roomUsernameRef.current = displayName || username;
+
       const doJoin = () => {
         console.log(
           `[WebRTC] Emitting join-room: code=${code}, username=${displayName || username}, socketId=${socket.id}`,
@@ -550,6 +581,9 @@ const useWebRTC = ({ socket, username }) => {
 
   // --- Leave / End Call ---
   const endCall = useCallback(() => {
+    roomCodeRef.current = null;
+    roomUsernameRef.current = null;
+
     // Stop all remote connections — snapshot keys first to avoid mutation during iteration
     const peerIds = [...connectionsRef.current.keys()];
     for (const peerId of peerIds) {
