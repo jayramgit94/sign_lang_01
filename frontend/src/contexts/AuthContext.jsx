@@ -2,7 +2,7 @@
  * Auth Context — JWT cookie-based authentication.
  * Handles register, login, logout, token refresh, and user state.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import {
@@ -18,12 +18,20 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const router = useNavigate();
 
-  // Check auth status on mount — tries cookie first, then token refresh fallback
+  // Stable ref for navigate — avoids useEffect re-running on every route change.
+  // In React Router v7, useNavigate() returns a new reference on location change,
+  // which would cause the effect to re-fire and race with login state updates.
+  const routerRef = useRef(router);
+  routerRef.current = router;
+
+  // Check auth status ONCE on mount — tries cookie first, then token refresh fallback
   useEffect(() => {
+    let cancelled = false;
+
     const checkAuth = async () => {
       try {
         const res = await api.get("/auth/me");
-        setUserData(res.data.user);
+        if (!cancelled) setUserData(res.data.user);
       } catch {
         // Access token missing/expired — try refreshing with stored refresh token
         const storedRefresh = getRefreshToken();
@@ -32,21 +40,23 @@ export const AuthProvider = ({ children }) => {
             const refreshRes = await api.post("/auth/refresh", {
               refreshToken: storedRefresh,
             });
-            if (refreshRes.data.accessToken) {
+            if (!cancelled && refreshRes.data.accessToken) {
               setAccessToken(refreshRes.data.accessToken);
             }
             // Retry auth check with new token
             const retryRes = await api.get("/auth/me");
-            setUserData(retryRes.data.user);
+            if (!cancelled) setUserData(retryRes.data.user);
             return;
           } catch {
             // Refresh also failed — user is truly unauthenticated
           }
         }
-        setUserData(null);
-        clearAllTokens();
+        if (!cancelled) {
+          setUserData(null);
+          clearAllTokens();
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     checkAuth();
@@ -54,11 +64,15 @@ export const AuthProvider = ({ children }) => {
     // Listen for token expiry events from API interceptor
     const handleExpired = () => {
       setUserData(null);
-      router("/auth");
+      clearAllTokens();
+      routerRef.current("/auth");
     };
     window.addEventListener("auth:expired", handleExpired);
-    return () => window.removeEventListener("auth:expired", handleExpired);
-  }, [router]);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("auth:expired", handleExpired);
+    };
+  }, []);
 
   const handleRegister = async (name, username, password) => {
     try {
