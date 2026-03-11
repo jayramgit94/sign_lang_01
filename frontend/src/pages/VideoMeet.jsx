@@ -30,7 +30,7 @@ import { disconnectSocket, getSocket } from "../services/socket";
 import styles from "../styles/videoComponent.module.css";
 
 const VideoMeet = () => {
-  const { userData, addToUserHistory, isAuthenticated } =
+  const { userData, addToUserHistory, updateMeeting, isAuthenticated } =
     useContext(AuthContext);
   const navigate = useNavigate();
   const { url } = useParams();
@@ -48,6 +48,11 @@ const VideoMeet = () => {
   const [chatOpen, setChatOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [captionsVisible, setCaptionsVisible] = useState(true);
+
+  // Meeting tracking refs (persisted across renders, not causing re-renders)
+  const meetingIdRef = useRef(null); // DB _id returned from addToHistory
+  const joinTimeRef = useRef(null);
+  const signDetectionsRef = useRef(new Map()); // label → count
 
   // Socket — created once. getSocket is idempotent (returns existing socket
   // even if still connecting), so StrictMode double-invoke is safe.
@@ -117,15 +122,17 @@ const VideoMeet = () => {
         const effectiveName = userData?.username || displayName || "Guest";
         joinRoom(meetingCode, effectiveName);
         setInLobby(false);
+        joinTimeRef.current = Date.now();
 
         // Store guest name for UI display (after joinRoom to avoid race)
         if (!userData?.username && displayName) {
           setGuestName(displayName);
         }
 
-        // Record in history if authenticated
+        // Record in history if authenticated — save returned _id
         if (isAuthenticated) {
-          addToUserHistory(meetingCode);
+          const doc = await addToUserHistory(meetingCode);
+          if (doc?._id) meetingIdRef.current = doc._id;
         }
       } catch {
         enqueueSnackbar(
@@ -145,12 +152,43 @@ const VideoMeet = () => {
     ],
   );
 
-  // --- End call ---
+  // --- Track sign language detections ---
+  useEffect(() => {
+    if (!captionText) return;
+    const map = signDetectionsRef.current;
+    map.set(captionText, (map.get(captionText) || 0) + 1);
+  }, [captionText]);
+
+  // --- End call — send meeting summary to backend ---
   const handleEndCall = useCallback(() => {
+    // Gather meeting data before tearing down
+    if (isAuthenticated && meetingIdRef.current && joinTimeRef.current) {
+      const duration = Math.round((Date.now() - joinTimeRef.current) / 1000);
+      const participants = participantList.map((p) => p.username);
+      const signDetections = Array.from(
+        signDetectionsRef.current.entries(),
+      ).map(([label, count]) => ({ label, count }));
+
+      updateMeeting(meetingIdRef.current, {
+        endedAt: new Date().toISOString(),
+        duration,
+        participants,
+        chatMessageCount: messages.length,
+        signDetections,
+      });
+    }
+
     rtcEndCall();
     disconnectSocket();
     navigate("/home");
-  }, [rtcEndCall, navigate]);
+  }, [
+    rtcEndCall,
+    navigate,
+    isAuthenticated,
+    updateMeeting,
+    participantList,
+    messages,
+  ]);
 
   // --- Toggle chat panel ---
   const handleToggleChat = useCallback(() => {

@@ -135,21 +135,53 @@ export const AuthProvider = ({ children }) => {
     routerRef.current("/");
   }, []);
 
-  const getHistoryOfUser = async () => {
+  const getHistoryOfUser = async (params = {}) => {
     try {
-      const res = await api.get("/meetings");
+      const res = await api.get("/meetings", { params });
       return res.data;
     } catch (error) {
       console.error("Failed to get history:", error.message);
-      return [];
+      return { meetings: [], total: 0, page: 1, totalPages: 1, hasMore: false };
     }
   };
 
   const addToUserHistory = async (meetingCode) => {
     try {
-      await api.post("/meetings", { meetingCode });
+      const res = await api.post("/meetings", { meetingCode });
+      return res.data; // returns created meeting doc with _id
     } catch (error) {
       console.error("Failed to save meeting:", error.message);
+      return null;
+    }
+  };
+
+  const updateMeeting = async (id, data) => {
+    try {
+      const res = await api.patch(`/meetings/${id}`, data);
+      return res.data;
+    } catch (error) {
+      console.error("Failed to update meeting:", error.message);
+      return null;
+    }
+  };
+
+  const deleteMeeting = async (id) => {
+    try {
+      await api.delete(`/meetings/${id}`);
+      return true;
+    } catch (error) {
+      console.error("Failed to delete meeting:", error.message);
+      return false;
+    }
+  };
+
+  const getMeetingStats = async () => {
+    try {
+      const res = await api.get("/meetings/stats");
+      return res.data;
+    } catch (error) {
+      console.error("Failed to get stats:", error.message);
+      return null;
     }
   };
 
@@ -160,6 +192,9 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: !!userData,
     addToUserHistory,
     getHistoryOfUser,
+    updateMeeting,
+    deleteMeeting,
+    getMeetingStats,
     handleRegister,
     handleLogin,
     handleLogout,

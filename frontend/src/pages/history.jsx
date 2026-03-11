@@ -1,18 +1,60 @@
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import GroupIcon from "@mui/icons-material/Group";
 import HomeIcon from "@mui/icons-material/Home";
-import { IconButton } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import StarIcon from "@mui/icons-material/Star";
+import StarBorderIcon from "@mui/icons-material/StarBorder";
+import { IconButton, InputAdornment, TextField, Tooltip } from "@mui/material";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import { AnimatePresence, motion } from "framer-motion";
-import { useContext, useEffect, useState } from "react";
+import { useSnackbar } from "notistack";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageTransition from "../components/common/PageTransition";
 import { AuthContext } from "../contexts/AuthContext";
 
+// ── helpers ────────────────────────────────────────
+const formatDuration = (seconds) => {
+  if (!seconds || seconds <= 0) return null;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+};
+
+const getDateGroup = (dateStr) => {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const weekAgo = new Date(today.getTime() - 7 * 86400000);
+  if (d >= today) return "Today";
+  if (d >= yesterday) return "Yesterday";
+  if (d >= weekAgo) return "This Week";
+  return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+};
+
+const formatDate = (dateStr) => {
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+// ── animation variants ─────────────────────────────
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 20 },
   animate: {
@@ -30,91 +72,131 @@ const cardVariants = {
     scale: 1,
     transition: {
       duration: 0.4,
-      delay: i * 0.07,
+      delay: i * 0.06,
       ease: [0.25, 0.46, 0.45, 0.94],
     },
   }),
+  exit: { opacity: 0, scale: 0.95, transition: { duration: 0.25 } },
 };
 
+// ── stat card ──────────────────────────────────────
+const StatCard = ({ label, value, sub, delay }) => (
+  <motion.div {...fadeUp(delay)} className="historyStat">
+    <Typography className="historyStatValue">{value}</Typography>
+    <Typography className="historyStatLabel">{label}</Typography>
+    {sub && <Typography className="historyStatSub">{sub}</Typography>}
+  </motion.div>
+);
+
+// ── main component ─────────────────────────────────
 export default function History() {
-  const { getHistoryOfUser } = useContext(AuthContext);
+  const { getHistoryOfUser, deleteMeeting, updateMeeting, getMeetingStats } =
+    useContext(AuthContext);
+  const { enqueueSnackbar } = useSnackbar();
+  const routeTo = useNavigate();
 
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [cleared, setCleared] = useState(false);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [filterStarred, setFilterStarred] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
 
-  const routeTo = useNavigate();
-
+  // Debounce search input
   useEffect(() => {
-    const fetchHistory = async () => {
+    const t = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+    setMeetings([]);
+  }, [debouncedSearch, filterStarred]);
+
+  // Fetch meetings
+  const fetchMeetings = useCallback(
+    async (pageNum) => {
       try {
         setLoading(true);
-        const isCleared = localStorage.getItem("historyCleared") === "true";
-        setCleared(isCleared);
-        if (isCleared) {
-          setMeetings([]);
-          return;
-        }
-        const history = await getHistoryOfUser();
-        console.log("History fetched:", history);
-        setMeetings(history || []);
+        const params = { page: pageNum, limit: 20 };
+        if (debouncedSearch) params.search = debouncedSearch;
+        if (filterStarred) params.starred = "true";
+
+        const data = await getHistoryOfUser(params);
+        setMeetings((prev) =>
+          pageNum === 1 ? data.meetings : [...prev, ...data.meetings],
+        );
+        setHasMore(data.hasMore);
+        setTotal(data.total);
       } catch (err) {
-        console.error("Error fetching history:", err);
         setError(err.message || "Failed to fetch history");
       } finally {
         setLoading(false);
       }
-    };
+    },
+    [getHistoryOfUser, debouncedSearch, filterStarred],
+  );
 
-    fetchHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => {
+    fetchMeetings(page);
+  }, [fetchMeetings, page]);
 
-  const getChatMeta = (meetingCode) => {
-    try {
-      const raw = localStorage.getItem(`chatHistory:${meetingCode}`);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed) || parsed.length === 0) return null;
-      const lastMessage = parsed[parsed.length - 1];
-      return {
-        count: parsed.length,
-        lastText: lastMessage?.data || "",
-      };
-    } catch (err) {
-      return null;
+  // Fetch stats once on mount
+  useEffect(() => {
+    getMeetingStats().then((s) => s && setStats(s));
+  }, [getMeetingStats]);
+
+  // ── actions ──
+  const handleDelete = async (id) => {
+    const ok = await deleteMeeting(id);
+    if (ok) {
+      setMeetings((prev) => prev.filter((m) => m._id !== id));
+      setTotal((prev) => prev - 1);
+      enqueueSnackbar("Meeting deleted", { variant: "success" });
     }
   };
 
-  const handleClearHistory = () => {
-    localStorage.setItem("historyCleared", "true");
-    setCleared(true);
-    setMeetings([]);
+  const handleToggleStar = async (meeting) => {
+    const updated = await updateMeeting(meeting._id, {
+      starred: !meeting.starred,
+    });
+    if (updated) {
+      setMeetings((prev) =>
+        prev.map((m) => (m._id === updated._id ? updated : m)),
+      );
+    }
   };
 
-  const handleRestoreHistory = () => {
-    localStorage.removeItem("historyCleared");
-    setCleared(false);
-    setLoading(true);
-    getHistoryOfUser()
-      .then((history) => setMeetings(history || []))
-      .catch((err) => setError(err.message || "Failed to fetch history"))
-      .finally(() => setLoading(false));
+  const handleCopyLink = (code) => {
+    const link = `${window.location.origin}/${code}`;
+    navigator.clipboard.writeText(link);
+    enqueueSnackbar("Meeting link copied!", { variant: "info" });
   };
 
-  let formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const day = date.getDate().toString().padStart(2, "0");
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    const year = date.getFullYear();
+  const handleLoadMore = () => setPage((p) => p + 1);
 
-    return `${day}/${month}/${year}`;
-  };
+  // ── group meetings by date ──
+  const grouped = useMemo(() => {
+    const groups = new Map();
+    meetings.forEach((m) => {
+      const key = getDateGroup(m.date);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(m);
+    });
+    return groups;
+  }, [meetings]);
 
+  // ── render ──
   return (
     <PageTransition>
       <div className="historyPage">
+        {/* ── Header ── */}
         <motion.header
           className="historyHeader"
           initial={{ opacity: 0, y: -14 }}
@@ -126,20 +208,12 @@ export default function History() {
               Meeting history
             </Typography>
             <Typography variant="body2" className="historySubtitle">
-              Review and rejoin your recent calls.
+              {total > 0
+                ? `${total} meetings recorded`
+                : "Review your past calls"}
             </Typography>
           </div>
           <div className="historyHeaderActions">
-            <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={cleared ? handleRestoreHistory : handleClearHistory}
-                className="historyClearButton"
-              >
-                {cleared ? "Restore history" : "Clear history"}
-              </Button>
-            </motion.div>
             <motion.div whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.95 }}>
               <IconButton
                 onClick={() => routeTo("/home")}
@@ -151,8 +225,102 @@ export default function History() {
           </div>
         </motion.header>
 
+        {/* ── Stats Dashboard ── */}
+        {stats && (
+          <div className="historyStatsRow">
+            <StatCard
+              label="This Week"
+              value={stats.thisWeek}
+              sub="meetings"
+              delay={0.05}
+            />
+            <StatCard
+              label="This Month"
+              value={stats.thisMonth}
+              sub="meetings"
+              delay={0.1}
+            />
+            <StatCard
+              label="Total Time"
+              value={formatDuration(stats.totalDuration) || "0m"}
+              sub="in calls"
+              delay={0.15}
+            />
+            <StatCard
+              label="Avg Duration"
+              value={formatDuration(stats.avgDuration) || "—"}
+              sub="per call"
+              delay={0.2}
+            />
+            {stats.topSignDetections?.length > 0 && (
+              <StatCard
+                label="Top Sign"
+                value={stats.topSignDetections[0]._id}
+                sub={`${stats.topSignDetections[0].count}× detected`}
+                delay={0.25}
+              />
+            )}
+          </div>
+        )}
+
+        {/* ── Frequent Rooms ── */}
+        {stats?.frequentRooms?.length > 0 && (
+          <motion.div {...fadeUp(0.2)} className="historyFrequentRow">
+            <Typography className="historyFrequentTitle">
+              Frequent rooms
+            </Typography>
+            <div className="historyFrequentChips">
+              {stats.frequentRooms.map((r) => (
+                <Chip
+                  key={r._id}
+                  label={`${r._id} (${r.count}×)`}
+                  variant="outlined"
+                  size="small"
+                  className="historyFrequentChip"
+                  onClick={() => routeTo(`/${r._id}`)}
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── Search & Filter Bar ── */}
+        <motion.div {...fadeUp(0.15)} className="historySearchRow">
+          <TextField
+            placeholder="Search by code, title, or participant..."
+            variant="outlined"
+            size="small"
+            fullWidth
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="historySearchField"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ color: "var(--text-muted)" }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+          <Tooltip title={filterStarred ? "Show all" : "Starred only"}>
+            <IconButton
+              onClick={() => setFilterStarred((p) => !p)}
+              className={`historyFilterBtn ${filterStarred ? "active" : ""}`}
+            >
+              {filterStarred ? (
+                <StarIcon sx={{ color: "#fbbf24" }} />
+              ) : (
+                <StarBorderIcon />
+              )}
+            </IconButton>
+          </Tooltip>
+        </motion.div>
+
+        {/* ── Meeting List ── */}
         <Container maxWidth="md" className="historyContainer">
-          {loading ? (
+          {loading && meetings.length === 0 ? (
             <motion.div {...fadeUp(0.1)}>
               <Box sx={{ textAlign: "center", py: 6 }}>
                 <motion.div
@@ -183,64 +351,264 @@ export default function History() {
               </Card>
             </motion.div>
           ) : meetings.length !== 0 ? (
-            <Box className="historyList">
-              <AnimatePresence>
-                {meetings.map((meeting, i) => {
-                  const chatMeta = getChatMeta(meeting.meetingCode);
-                  return (
-                    <motion.div
-                      key={meeting.meetingCode || i}
-                      variants={cardVariants}
-                      initial="initial"
-                      animate="animate"
-                      custom={i}
-                      layout
-                    >
-                      <Card className="historyCard" variant="outlined">
-                        <CardContent>
-                          <Typography className="historyCode" gutterBottom>
-                            Meeting Code: {meeting.meetingCode}
-                          </Typography>
+            <>
+              {Array.from(grouped.entries()).map(
+                ([groupLabel, groupMeetings]) => (
+                  <Box key={groupLabel} className="historyDateGroup">
+                    <Typography className="historyDateLabel">
+                      {groupLabel}
+                    </Typography>
+                    <AnimatePresence>
+                      {groupMeetings.map((meeting, i) => {
+                        const dur = formatDuration(meeting.duration);
+                        const pCount = meeting.participants?.length || 0;
+                        const isExpanded = expandedId === meeting._id;
 
-                          <Typography className="historyMeta">
-                            Date: {formatDate(meeting.date)}
-                          </Typography>
-                          {chatMeta ? (
-                            <Typography className="historyChatMeta">
-                              {chatMeta.count} chat messages • Last:{" "}
-                              {chatMeta.lastText}
-                            </Typography>
-                          ) : (
-                            <Typography className="historyChatMeta">
-                              No chat messages saved
-                            </Typography>
-                          )}
-                        </CardContent>
-                        <CardActions className="historyActions">
+                        return (
                           <motion.div
-                            whileHover={{ scale: 1.06 }}
-                            whileTap={{ scale: 0.96 }}
+                            key={meeting._id}
+                            variants={cardVariants}
+                            initial="initial"
+                            animate="animate"
+                            exit="exit"
+                            custom={i}
+                            layout
                           >
-                            <Button
-                              size="small"
+                            <Card
+                              className={`historyCard ${isExpanded ? "expanded" : ""}`}
                               variant="outlined"
-                              onClick={() => routeTo(`/${meeting.meetingCode}`)}
+                              onClick={() =>
+                                setExpandedId(isExpanded ? null : meeting._id)
+                              }
                             >
-                              Rejoin
-                            </Button>
+                              <CardContent className="historyCardContent">
+                                <div className="historyCardTopRow">
+                                  <div className="historyCardInfo">
+                                    <Typography
+                                      className="historyCode"
+                                      gutterBottom
+                                    >
+                                      {meeting.title || meeting.meetingCode}
+                                    </Typography>
+                                    {meeting.title && (
+                                      <Typography className="historyCodeSub">
+                                        {meeting.meetingCode}
+                                      </Typography>
+                                    )}
+                                  </div>
+
+                                  <div className="historyCardBadges">
+                                    {dur && (
+                                      <Chip
+                                        icon={
+                                          <AccessTimeIcon
+                                            sx={{ fontSize: 14 }}
+                                          />
+                                        }
+                                        label={dur}
+                                        size="small"
+                                        className="historyChip duration"
+                                      />
+                                    )}
+                                    {pCount > 0 && (
+                                      <Chip
+                                        icon={
+                                          <GroupIcon sx={{ fontSize: 14 }} />
+                                        }
+                                        label={`${pCount}`}
+                                        size="small"
+                                        className="historyChip participants"
+                                      />
+                                    )}
+                                    {meeting.signDetections?.length > 0 && (
+                                      <Chip
+                                        label={`🤟 ${meeting.signDetections.reduce((sum, d) => sum + d.count, 0)}`}
+                                        size="small"
+                                        className="historyChip signs"
+                                      />
+                                    )}
+                                    {meeting.chatMessageCount > 0 && (
+                                      <Chip
+                                        label={`💬 ${meeting.chatMessageCount}`}
+                                        size="small"
+                                        className="historyChip chat"
+                                      />
+                                    )}
+                                  </div>
+                                </div>
+
+                                <Typography className="historyMeta">
+                                  {formatDate(meeting.date)}
+                                </Typography>
+
+                                {/* ── Expanded Detail ── */}
+                                <AnimatePresence>
+                                  {isExpanded && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: "auto", opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.3 }}
+                                      className="historyExpanded"
+                                    >
+                                      {pCount > 0 && (
+                                        <div className="historyDetailRow">
+                                          <Typography className="historyDetailLabel">
+                                            Participants
+                                          </Typography>
+                                          <div className="historyParticipantChips">
+                                            {meeting.participants.map((p) => (
+                                              <Chip
+                                                key={p}
+                                                label={p}
+                                                size="small"
+                                                className="historyParticipantChip"
+                                              />
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {meeting.signDetections?.length > 0 && (
+                                        <div className="historyDetailRow">
+                                          <Typography className="historyDetailLabel">
+                                            Signs Detected
+                                          </Typography>
+                                          <div className="historySignChips">
+                                            {meeting.signDetections.map((d) => (
+                                              <Chip
+                                                key={d.label}
+                                                label={`${d.label} ×${d.count}`}
+                                                size="small"
+                                                className="historySignChip"
+                                              />
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {meeting.chatMessageCount > 0 && (
+                                        <div className="historyDetailRow">
+                                          <Typography className="historyDetailLabel">
+                                            Chat Messages
+                                          </Typography>
+                                          <Typography className="historyDetailValue">
+                                            {meeting.chatMessageCount} messages
+                                            exchanged
+                                          </Typography>
+                                        </div>
+                                      )}
+
+                                      {dur && (
+                                        <div className="historyDetailRow">
+                                          <Typography className="historyDetailLabel">
+                                            Duration
+                                          </Typography>
+                                          <Typography className="historyDetailValue">
+                                            {dur}
+                                            {meeting.endedAt &&
+                                              ` — ended ${formatDate(meeting.endedAt)}`}
+                                          </Typography>
+                                        </div>
+                                      )}
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </CardContent>
+
+                              <CardActions
+                                className="historyActions"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <motion.div
+                                  whileHover={{ scale: 1.06 }}
+                                  whileTap={{ scale: 0.96 }}
+                                >
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={() =>
+                                      routeTo(`/${meeting.meetingCode}`)
+                                    }
+                                  >
+                                    Rejoin
+                                  </Button>
+                                </motion.div>
+
+                                <Tooltip title="Copy meeting link">
+                                  <IconButton
+                                    size="small"
+                                    className="historyActionIcon"
+                                    onClick={() =>
+                                      handleCopyLink(meeting.meetingCode)
+                                    }
+                                  >
+                                    <ContentCopyIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+
+                                <Tooltip
+                                  title={meeting.starred ? "Unstar" : "Star"}
+                                >
+                                  <IconButton
+                                    size="small"
+                                    className="historyActionIcon"
+                                    onClick={() => handleToggleStar(meeting)}
+                                  >
+                                    {meeting.starred ? (
+                                      <StarIcon
+                                        fontSize="small"
+                                        sx={{ color: "#fbbf24" }}
+                                      />
+                                    ) : (
+                                      <StarBorderIcon fontSize="small" />
+                                    )}
+                                  </IconButton>
+                                </Tooltip>
+
+                                <Tooltip title="Delete">
+                                  <IconButton
+                                    size="small"
+                                    className="historyActionIcon delete"
+                                    onClick={() => handleDelete(meeting._id)}
+                                  >
+                                    <DeleteOutlineIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </CardActions>
+                            </Card>
                           </motion.div>
-                        </CardActions>
-                      </Card>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </Box>
+                        );
+                      })}
+                    </AnimatePresence>
+                  </Box>
+                ),
+              )}
+
+              {/* Load more */}
+              {hasMore && (
+                <motion.div
+                  {...fadeUp(0.1)}
+                  style={{ textAlign: "center", marginTop: "1.5rem" }}
+                >
+                  <Button
+                    variant="outlined"
+                    onClick={handleLoadMore}
+                    disabled={loading}
+                    className="historyClearButton"
+                  >
+                    {loading ? "Loading..." : "Load more"}
+                  </Button>
+                </motion.div>
+              )}
+            </>
           ) : (
             <motion.div {...fadeUp(0.15)}>
               <Card className="historyEmpty">
                 <Typography variant="body1" color="textSecondary">
-                  No meetings yet. Start a new meeting to see it here.
+                  {debouncedSearch || filterStarred
+                    ? "No meetings match your filters."
+                    : "No meetings yet. Start a new meeting to see it here."}
                 </Typography>
               </Card>
             </motion.div>
