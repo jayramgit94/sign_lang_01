@@ -15,6 +15,25 @@ const meetingSchema = new Schema({
       count: { type: Number, default: 1 },
     },
   ],
+  chatTranscript: [
+    {
+      sender: { type: String, trim: true, maxlength: 50 },
+      text: { type: String, trim: true, maxlength: 2000 },
+      timestamp: { type: Date },
+    },
+  ],
+  meetingSummary: {
+    quickSummary: { type: String, trim: true, maxlength: 1200 },
+    keyPoints: [{ type: String, trim: true, maxlength: 240 }],
+    topKeywords: [{ type: String, trim: true, maxlength: 40 }],
+    topSigns: [
+      {
+        label: { type: String, trim: true, maxlength: 50 },
+        count: { type: Number, default: 1 },
+      },
+    ],
+    generatedAt: { type: Date },
+  },
   starred: { type: Boolean, default: false },
 });
 

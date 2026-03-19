@@ -54,6 +54,13 @@ const formatDate = (dateStr) => {
   });
 };
 
+const formatTimeOnly = (dateStr) => {
+  return new Date(dateStr).toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 // ── animation variants ─────────────────────────────
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 20 },
@@ -496,6 +503,75 @@ export default function History() {
                                             {meeting.chatMessageCount} messages
                                             exchanged
                                           </Typography>
+                                        </div>
+                                      )}
+
+                                      {meeting.meetingSummary?.quickSummary && (
+                                        <div className="historyDetailRow">
+                                          <Typography className="historyDetailLabel">
+                                            Meeting Summary
+                                          </Typography>
+                                          <Typography className="historySummaryText">
+                                            {meeting.meetingSummary.quickSummary}
+                                          </Typography>
+
+                                          {meeting.meetingSummary.keyPoints
+                                            ?.length > 0 && (
+                                            <div className="historySummaryPoints">
+                                              {meeting.meetingSummary.keyPoints.map(
+                                                (point, idx) => (
+                                                  <Typography
+                                                    key={`${meeting._id}-kp-${idx}`}
+                                                    className="historySummaryPoint"
+                                                  >
+                                                    • {point}
+                                                  </Typography>
+                                                ),
+                                              )}
+                                            </div>
+                                          )}
+
+                                          {meeting.meetingSummary.topKeywords
+                                            ?.length > 0 && (
+                                            <div className="historyKeywordChips">
+                                              {meeting.meetingSummary.topKeywords.map(
+                                                (k) => (
+                                                  <Chip
+                                                    key={`${meeting._id}-kw-${k}`}
+                                                    label={k}
+                                                    size="small"
+                                                    className="historyKeywordChip"
+                                                  />
+                                                ),
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {meeting.chatTranscript?.length > 0 && (
+                                        <div className="historyDetailRow">
+                                          <Typography className="historyDetailLabel">
+                                            Full Chat Transcript
+                                          </Typography>
+                                          <div className="historyTranscriptBox">
+                                            {meeting.chatTranscript.map((msg, idx) => (
+                                              <div
+                                                key={`${meeting._id}-msg-${idx}`}
+                                                className="historyTranscriptRow"
+                                              >
+                                                <Typography className="historyTranscriptMeta">
+                                                  {msg.sender || "Guest"} •{" "}
+                                                  {msg.timestamp
+                                                    ? formatTimeOnly(msg.timestamp)
+                                                    : "--:--"}
+                                                </Typography>
+                                                <Typography className="historyTranscriptText">
+                                                  {msg.text || msg.data}
+                                                </Typography>
+                                              </div>
+                                            ))}
+                                          </div>
                                         </div>
                                       )}
 

@@ -4,6 +4,134 @@
 import mongoose from "mongoose";
 import { Meeting } from "../models/meeting.model.js";
 
+const STOP_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "as",
+  "at",
+  "be",
+  "by",
+  "for",
+  "from",
+  "has",
+  "he",
+  "in",
+  "is",
+  "it",
+  "its",
+  "of",
+  "on",
+  "that",
+  "the",
+  "to",
+  "was",
+  "were",
+  "will",
+  "with",
+  "you",
+  "your",
+  "we",
+  "our",
+  "i",
+  "me",
+  "my",
+]);
+
+const toDurationLabel = (seconds) => {
+  const s = Math.max(0, Number(seconds) || 0);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+};
+
+const buildMeetingSummary = ({
+  title,
+  meetingCode,
+  participants,
+  duration,
+  chatTranscript,
+  signDetections,
+}) => {
+  const transcript = Array.isArray(chatTranscript) ? chatTranscript : [];
+  const signs = Array.isArray(signDetections) ? signDetections : [];
+  const participantSet = new Set((participants || []).filter(Boolean));
+
+  const speakerCounts = new Map();
+  const allText = [];
+  for (const msg of transcript) {
+    if (!msg?.text) continue;
+    allText.push(msg.text);
+    const speaker = msg.sender || "Unknown";
+    speakerCounts.set(speaker, (speakerCounts.get(speaker) || 0) + 1);
+    participantSet.add(speaker);
+  }
+
+  const keywords = new Map();
+  for (const text of allText) {
+    const tokens = text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s']/g, " ")
+      .split(/\s+/)
+      .filter((t) => t.length > 2 && !STOP_WORDS.has(t));
+    for (const token of tokens) {
+      keywords.set(token, (keywords.get(token) || 0) + 1);
+    }
+  }
+
+  const topKeywords = [...keywords.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([word]) => word);
+
+  const topSigns = [...signs]
+    .sort((a, b) => (Number(b.count) || 0) - (Number(a.count) || 0))
+    .slice(0, 6)
+    .map((s) => ({
+      label: (s.label || "").trim().slice(0, 50),
+      count: Math.max(1, Number(s.count) || 1),
+    }));
+
+  const topSpeaker = [...speakerCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+  const roomLabel = title || meetingCode;
+  const quickSummaryParts = [
+    `Meeting ${roomLabel ? `"${roomLabel}" ` : ""}ran for ${toDurationLabel(duration)} with ${participantSet.size || 1} participant(s).`,
+    `A total of ${transcript.length} chat message(s) were exchanged.`,
+    topSpeaker
+      ? `Most active speaker: ${topSpeaker[0]} (${topSpeaker[1]} messages).`
+      : "No dominant speaker detected.",
+    topSigns.length > 0
+      ? `Top sign(s): ${topSigns
+          .slice(0, 3)
+          .map((s) => `${s.label} (${s.count})`)
+          .join(", ")}.`
+      : "No sign detections were recorded.",
+    topKeywords.length > 0
+      ? `Main discussion keywords: ${topKeywords.slice(0, 5).join(", ")}.`
+      : "Not enough chat content for keyword extraction.",
+  ];
+
+  const keyPoints = [
+    `${participantSet.size || 1} participant(s) in this meeting`,
+    `${transcript.length} total chat message(s)`,
+    `${topSigns.reduce((sum, s) => sum + s.count, 0)} total sign detection(s)`,
+  ];
+
+  if (topSpeaker) {
+    keyPoints.push(`Most active participant: ${topSpeaker[0]} (${topSpeaker[1]} messages)`);
+  }
+
+  return {
+    quickSummary: quickSummaryParts.join(" "),
+    keyPoints: keyPoints.slice(0, 6),
+    topKeywords,
+    topSigns,
+    generatedAt: new Date(),
+  };
+};
+
 /**
  * POST /api/v1/meetings — Record a meeting in history. Returns the created doc.
  */
@@ -47,7 +175,9 @@ export const updateMeeting = async (req, res, next) => {
       "duration",
       "participants",
       "chatMessageCount",
+      "chatTranscript",
       "signDetections",
+      "meetingSummary",
       "starred",
     ];
     const updates = {};
@@ -74,15 +204,44 @@ export const updateMeeting = async (req, res, next) => {
         .slice(0, 100);
     }
 
+    if (updates.chatTranscript && Array.isArray(updates.chatTranscript)) {
+      updates.chatTranscript = updates.chatTranscript
+        .map((m) => {
+          const sender =
+            typeof m?.sender === "string" ? m.sender.trim().slice(0, 50) : "Guest";
+          const rawText = typeof m?.text === "string" ? m.text : m?.data;
+          const text = typeof rawText === "string" ? rawText.trim().slice(0, 2000) : "";
+          if (!text) return null;
+          const ts = m?.timestamp ? new Date(m.timestamp) : new Date();
+          return {
+            sender,
+            text,
+            timestamp: Number.isNaN(ts.getTime()) ? new Date() : ts,
+          };
+        })
+        .filter(Boolean)
+        .slice(0, 500);
+    }
+
+    const existingMeeting = await Meeting.findOne({
+      _id: id,
+      user_id: req.user.userId,
+    }).lean();
+
+    if (!existingMeeting) {
+      return res.status(404).json({ message: "Meeting not found." });
+    }
+
+    if (!updates.meetingSummary) {
+      const merged = { ...existingMeeting, ...updates };
+      updates.meetingSummary = buildMeetingSummary(merged);
+    }
+
     const meeting = await Meeting.findOneAndUpdate(
       { _id: id, user_id: req.user.userId },
       { $set: updates },
       { new: true },
     ).lean();
-
-    if (!meeting) {
-      return res.status(404).json({ message: "Meeting not found." });
-    }
 
     res.json(meeting);
   } catch (err) {

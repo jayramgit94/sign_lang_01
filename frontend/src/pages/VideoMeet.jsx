@@ -160,7 +160,7 @@ const VideoMeet = () => {
   }, [captionText]);
 
   // --- End call — send meeting summary to backend ---
-  const handleEndCall = useCallback(() => {
+  const handleEndCall = useCallback(async () => {
     // Gather meeting data before tearing down
     if (isAuthenticated && meetingIdRef.current && joinTimeRef.current) {
       const duration = Math.round((Date.now() - joinTimeRef.current) / 1000);
@@ -168,12 +168,20 @@ const VideoMeet = () => {
       const signDetections = Array.from(
         signDetectionsRef.current.entries(),
       ).map(([label, count]) => ({ label, count }));
+      const chatTranscript = messages
+        .filter((m) => m && typeof (m.text || m.data) === "string")
+        .map((m) => ({
+          sender: m.sender || "Guest",
+          text: (m.text || m.data || "").toString(),
+          timestamp: m.timestamp || Date.now(),
+        }));
 
-      updateMeeting(meetingIdRef.current, {
+      await updateMeeting(meetingIdRef.current, {
         endedAt: new Date().toISOString(),
         duration,
         participants,
         chatMessageCount: messages.length,
+        chatTranscript,
         signDetections,
       });
     }

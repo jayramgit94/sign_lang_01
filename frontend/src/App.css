@@ -1074,6 +1074,70 @@
   font-size: 0.75rem !important;
 }
 
+.historySummaryText {
+  font-size: 0.9rem !important;
+  color: var(--text-secondary) !important;
+  line-height: 1.5 !important;
+}
+
+.historySummaryPoints {
+  margin-top: 0.5rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.historySummaryPoint {
+  font-size: 0.83rem !important;
+  color: var(--text-muted) !important;
+}
+
+.historyKeywordChips {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.historyKeywordChip {
+  background: rgba(99, 102, 241, 0.1) !important;
+  border: 1px solid rgba(99, 102, 241, 0.25) !important;
+  color: #a5b4fc !important;
+  font-size: 0.72rem !important;
+}
+
+.historyTranscriptBox {
+  margin-top: 0.35rem;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.historyTranscriptRow {
+  padding: 0.35rem 0;
+  border-bottom: 1px dashed rgba(148, 163, 184, 0.15);
+}
+
+.historyTranscriptRow:last-child {
+  border-bottom: none;
+}
+
+.historyTranscriptMeta {
+  font-size: 0.72rem !important;
+  color: var(--text-muted) !important;
+  margin-bottom: 0.15rem !important;
+}
+
+.historyTranscriptText {
+  font-size: 0.86rem !important;
+  color: var(--text-secondary) !important;
+  line-height: 1.45 !important;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* ── Card Actions ── */
 .historyActions {
   padding: 0 16px 12px !important;
