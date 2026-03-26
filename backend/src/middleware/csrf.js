@@ -11,12 +11,24 @@ import config from "../config/index.js";
 const CSRF_TOKEN_LENGTH = 32;
 const CSRF_COOKIE_NAME = "XSRF-TOKEN";
 const CSRF_HEADER_NAME = "X-XSRF-TOKEN";
+const CSRF_SIGNING_SECRET =
+  process.env.CSRF_SECRET ||
+  process.env.JWT_ACCESS_SECRET ||
+  "dev-csrf-secret-change-me";
+const CSRF_TTL_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Generate CSRF token
  */
 export const generateCsrfToken = () => {
-  return crypto.randomBytes(CSRF_TOKEN_LENGTH).toString("hex");
+  const nonce = crypto.randomBytes(CSRF_TOKEN_LENGTH).toString("hex");
+  const ts = Date.now().toString();
+  const payload = `${ts}.${nonce}`;
+  const sig = crypto
+    .createHmac("sha256", CSRF_SIGNING_SECRET)
+    .update(payload)
+    .digest("hex");
+  return `${payload}.${sig}`;
 };
 
 /**
@@ -63,16 +75,22 @@ export const verifyCsrfToken = (req, res, next) => {
   const providedToken = tokenFromHeader || tokenFromBody;
   const cookieToken = tokenFromCookie;
 
-  // Validate token exists and matches
-  if (!providedToken || !cookieToken) {
+  // Header/body token is always required for state-changing requests.
+  if (!providedToken) {
     return res.status(403).json({
       message: "Missing CSRF token.",
       code: "CSRF_TOKEN_MISSING",
     });
   }
 
-  // Constant-time comparison to prevent timing attacks
-  if (!constantTimeEqual(providedToken, cookieToken)) {
+  // Preferred mode: double-submit cookie comparison.
+  // Fallback mode: validate signed token if cookie is unavailable
+  // (can happen with strict third-party cookie policies).
+  const valid = cookieToken
+    ? constantTimeEqual(providedToken, cookieToken)
+    : verifySignedCsrfToken(providedToken);
+
+  if (!valid) {
     return res.status(403).json({
       message: "Invalid CSRF token.",
       code: "CSRF_TOKEN_INVALID",
@@ -86,6 +104,10 @@ export const verifyCsrfToken = (req, res, next) => {
  * Constant-time string comparison to prevent timing attacks
  */
 function constantTimeEqual(a, b) {
+  if (!a || !b) {
+    return false;
+  }
+
   if (a.length !== b.length) {
     return false;
   }
@@ -96,4 +118,26 @@ function constantTimeEqual(a, b) {
   }
 
   return result === 0;
+}
+
+function verifySignedCsrfToken(token) {
+  if (!token || typeof token !== "string") return false;
+
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+
+  const [ts, nonce, signature] = parts;
+  if (!ts || !nonce || !signature) return false;
+
+  const tsNum = Number(ts);
+  if (!Number.isFinite(tsNum)) return false;
+  if (Date.now() - tsNum > CSRF_TTL_MS) return false;
+
+  const payload = `${ts}.${nonce}`;
+  const expectedSig = crypto
+    .createHmac("sha256", CSRF_SIGNING_SECRET)
+    .update(payload)
+    .digest("hex");
+
+  return constantTimeEqual(signature, expectedSig);
 }
