@@ -12,6 +12,36 @@ import {
 } from "./tokenStore";
 
 const API_BASE = server;
+const CSRF_COOKIE_NAME = "XSRF-TOKEN";
+
+const getCookieValue = (name) => {
+  if (typeof document === "undefined") return "";
+  const cookie = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`${name}=`));
+  return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+};
+
+let csrfInitPromise = null;
+
+const bootstrapCsrfToken = async () => {
+  const existing = getCookieValue(CSRF_COOKIE_NAME);
+  if (existing) return existing;
+
+  if (!csrfInitPromise) {
+    csrfInitPromise = axios
+      .get(`${API_BASE}/api/v1/auth/csrf-token`, {
+        withCredentials: true,
+        timeout: 7000,
+      })
+      .finally(() => {
+        csrfInitPromise = null;
+      });
+  }
+
+  await csrfInitPromise;
+  return getCookieValue(CSRF_COOKIE_NAME);
+};
 
 const api = axios.create({
   baseURL: `${API_BASE}/api/v1`,
@@ -22,12 +52,27 @@ const api = axios.create({
   },
 });
 
-// Request interceptor — attach Authorization header as fallback for cross-origin
-api.interceptors.request.use((config) => {
+// Request interceptor — attach Authorization and CSRF headers
+api.interceptors.request.use(async (config) => {
   const token = getAccessToken();
   if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  const method = (config.method || "get").toLowerCase();
+  const isMutating = ["post", "put", "patch", "delete"].includes(method);
+  const isCsrfBootstrap = (config.url || "").includes("/auth/csrf-token");
+
+  if (isMutating && !isCsrfBootstrap) {
+    let csrfToken = getCookieValue(CSRF_COOKIE_NAME);
+    if (!csrfToken) {
+      csrfToken = await bootstrapCsrfToken();
+    }
+    if (csrfToken) {
+      config.headers["X-XSRF-TOKEN"] = csrfToken;
+    }
+  }
+
   return config;
 });
 
@@ -100,3 +145,4 @@ api.interceptors.response.use(
 
 export default api;
 export { API_BASE };
+export const ensureCsrfToken = bootstrapCsrfToken;

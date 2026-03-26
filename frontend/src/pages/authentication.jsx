@@ -1,15 +1,21 @@
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
-import { Snackbar } from "@mui/material";
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
+import { CircularProgress, Snackbar } from "@mui/material";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CssBaseline from "@mui/material/CssBaseline";
 import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
+import InputAdornment from "@mui/material/InputAdornment";
+import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { AnimatePresence, motion } from "framer-motion";
 import * as React from "react";
+import { useNavigate } from "react-router-dom";
 import PageTransition from "../components/common/PageTransition";
 import { AuthContext } from "../contexts/AuthContext";
 
@@ -51,36 +57,96 @@ const textFieldSx = {
 };
 
 export default function Authentication() {
+  const navigate = useNavigate();
   const [username, setUsername] = React.useState("");
+  const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [showPassword, setShowPassword] = React.useState(false);
   const [name, setName] = React.useState("");
   const [error, setError] = React.useState("");
   const [message, setMessage] = React.useState("");
+  const [resetLink, setResetLink] = React.useState("");
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [forgotMode, setForgotMode] = React.useState(false);
 
   const [formState, setFormState] = React.useState(0);
 
   const [open, setOpen] = React.useState(false);
 
-  const { handleRegister, handleLogin } = React.useContext(AuthContext);
+  const { handleRegister, handleLogin, handleForgotPassword } =
+    React.useContext(AuthContext);
 
-  let handleAuth = async () => {
+  const handleAuth = async () => {
+    if (isSubmitting) return;
+
+    setError("");
+    setMessage("");
+    setResetLink("");
+    setIsSubmitting(true);
+
     try {
-      if (formState === 0) {
-        const result = await handleLogin(username, password);
-        if (!result.success) {
+      if (forgotMode) {
+        if (!email.trim()) {
+          setError("Please enter your email address.");
+          return;
+        }
+
+        const result = await handleForgotPassword(email.trim());
+        if (result.success) {
+          setMessage(result.message);
+          setResetLink(result.resetUrl || "");
+          setOpen(true);
+          setForgotMode(false);
+        } else {
           setError(result.message);
         }
+        return;
       }
+
+      if (formState === 0) {
+        if (!username.trim() || !password.trim()) {
+          setError("Username and password are required.");
+          return;
+        }
+
+        const result = await handleLogin(username.trim(), password);
+        if (!result.success) {
+          const attemptsHint =
+            typeof result.attemptsRemaining === "number" &&
+            result.attemptsRemaining >= 0
+              ? ` Attempts remaining: ${result.attemptsRemaining}.`
+              : "";
+          setError(`${result.message || "Login failed."}${attemptsHint}`);
+        }
+      }
+
       if (formState === 1) {
-        const result = await handleRegister(name, username, password);
+        if (!name.trim() || !username.trim() || !password) {
+          setError("Name, username, and password are required for sign up.");
+          return;
+        }
+
+        const result = await handleRegister(
+          name.trim(),
+          username.trim(),
+          email.trim(),
+          password,
+        );
         if (result.success) {
           setUsername("");
+          setEmail("");
           setMessage(result.message);
           setOpen(true);
           setError("");
           setFormState(0);
           setPassword("");
           setName("");
+
+          if (result.emailVerificationToken) {
+            navigate(
+              `/verify-email?token=${encodeURIComponent(result.emailVerificationToken)}`,
+            );
+          }
         } else {
           setError(result.message);
         }
@@ -88,6 +154,8 @@ export default function Authentication() {
     } catch (err) {
       console.log(err);
       setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -287,7 +355,11 @@ export default function Authentication() {
                   <Box sx={{ mb: 3, display: "flex", gap: 1 }}>
                     <Button
                       variant={formState === 0 ? "contained" : "outlined"}
-                      onClick={() => setFormState(0)}
+                      onClick={() => {
+                        setFormState(0);
+                        setForgotMode(false);
+                        setError("");
+                      }}
                       sx={{
                         borderRadius: "999px",
                         textTransform: "none",
@@ -313,7 +385,11 @@ export default function Authentication() {
                     </Button>
                     <Button
                       variant={formState === 1 ? "contained" : "outlined"}
-                      onClick={() => setFormState(1)}
+                      onClick={() => {
+                        setFormState(1);
+                        setForgotMode(false);
+                        setError("");
+                      }}
                       sx={{
                         borderRadius: "999px",
                         textTransform: "none",
@@ -350,58 +426,136 @@ export default function Authentication() {
                   }}
                 >
                   <AnimatePresence mode="wait">
-                    {formState === 1 && (
+                    {(formState === 1 || forgotMode) && (
                       <motion.div
-                        key="name-field"
+                        key="email-block"
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
                         transition={{ duration: 0.3 }}
                       >
+                        {formState === 1 && !forgotMode && (
+                          <TextField
+                            margin="normal"
+                            required
+                            fullWidth
+                            id="fullname"
+                            label="Full Name"
+                            name="fullname"
+                            value={name}
+                            autoFocus
+                            size="small"
+                            onChange={(e) => setName(e.target.value)}
+                            sx={textFieldSx}
+                          />
+                        )}
+
                         <TextField
                           margin="normal"
-                          required
+                          required={forgotMode}
                           fullWidth
-                          id="fullname"
-                          label="Full Name"
-                          name="fullname"
-                          value={name}
-                          autoFocus
+                          id="email"
+                          label={forgotMode ? "Email" : "Email (optional)"}
+                          name="email"
+                          value={email}
+                          type="email"
+                          autoFocus={forgotMode}
                           size="small"
-                          onChange={(e) => setName(e.target.value)}
+                          onChange={(e) => setEmail(e.target.value)}
                           sx={textFieldSx}
                         />
                       </motion.div>
                     )}
                   </AnimatePresence>
 
-                  <TextField
-                    margin="normal"
-                    required
-                    fullWidth
-                    id="username"
-                    label="Username"
-                    name="username"
-                    value={username}
-                    autoFocus={formState === 0}
-                    size="small"
-                    onChange={(e) => setUsername(e.target.value)}
-                    sx={textFieldSx}
-                  />
-                  <TextField
-                    margin="normal"
-                    required
-                    fullWidth
-                    name="password"
-                    label="Password"
-                    value={password}
-                    type="password"
-                    size="small"
-                    autoComplete="current-password"
-                    onChange={(e) => setPassword(e.target.value)}
-                    id="password"
-                    sx={textFieldSx}
-                  />
+                  {!forgotMode && (
+                    <>
+                      <TextField
+                        margin="normal"
+                        required
+                        fullWidth
+                        id="username"
+                        label="Username"
+                        name="username"
+                        value={username}
+                        autoFocus={formState === 0}
+                        size="small"
+                        onChange={(e) => setUsername(e.target.value)}
+                        sx={textFieldSx}
+                      />
+                      <TextField
+                        margin="normal"
+                        required
+                        fullWidth
+                        name="password"
+                        label="Password"
+                        value={password}
+                        type={showPassword ? "text" : "password"}
+                        size="small"
+                        autoComplete="current-password"
+                        onChange={(e) => setPassword(e.target.value)}
+                        id="password"
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton
+                                aria-label={
+                                  showPassword ? "Hide password" : "Show password"
+                                }
+                                onClick={() => setShowPassword((prev) => !prev)}
+                                edge="end"
+                                sx={{ color: "rgba(148,163,184,0.9)" }}
+                              >
+                                {showPassword ? <VisibilityOff /> : <Visibility />}
+                              </IconButton>
+                            </InputAdornment>
+                          ),
+                        }}
+                        sx={textFieldSx}
+                      />
+                    </>
+                  )}
+
+                  {formState === 0 && !forgotMode && (
+                    <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 0.5 }}>
+                      <Link
+                        component="button"
+                        type="button"
+                        underline="hover"
+                        onClick={() => {
+                          setForgotMode(true);
+                          setError("");
+                        }}
+                        sx={{
+                          color: "#93c5fd",
+                          fontSize: "0.85rem",
+                          textDecorationColor: "rgba(147,197,253,0.4)",
+                        }}
+                      >
+                        Forgot password?
+                      </Link>
+                    </Box>
+                  )}
+
+                  {forgotMode && (
+                    <Box sx={{ display: "flex", justifyContent: "flex-start", mt: 0.5 }}>
+                      <Link
+                        component="button"
+                        type="button"
+                        underline="hover"
+                        onClick={() => {
+                          setForgotMode(false);
+                          setError("");
+                        }}
+                        sx={{
+                          color: "rgba(226,232,240,0.8)",
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        Back to login
+                      </Link>
+                    </Box>
+                  )}
 
                   <AnimatePresence>
                     {error && (
@@ -428,6 +582,42 @@ export default function Authentication() {
                     )}
                   </AnimatePresence>
 
+                  {resetLink && (
+                    <Box
+                      sx={{
+                        mt: 1.5,
+                        p: 1.5,
+                        borderRadius: "10px",
+                        border: "1px solid rgba(59,130,246,0.35)",
+                        background: "rgba(59,130,246,0.08)",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          color: "#bfdbfe",
+                          fontSize: "0.82rem",
+                          mb: 0.8,
+                          fontWeight: 600,
+                        }}
+                      >
+                        Development reset link
+                      </Box>
+                      <Link
+                        href={resetLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{
+                          color: "#93c5fd",
+                          fontSize: "0.82rem",
+                          wordBreak: "break-all",
+                          textDecorationColor: "rgba(147,197,253,0.5)",
+                        }}
+                      >
+                        {resetLink}
+                      </Link>
+                    </Box>
+                  )}
+
                   <motion.div
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
@@ -436,6 +626,7 @@ export default function Authentication() {
                       type="submit"
                       fullWidth
                       variant="contained"
+                      disabled={isSubmitting}
                       sx={{
                         mt: 3,
                         mb: 2,
@@ -451,7 +642,15 @@ export default function Authentication() {
                         },
                       }}
                     >
-                      {formState === 0 ? "Login" : "Register"}
+                      {isSubmitting ? (
+                        <CircularProgress size={20} sx={{ color: "white" }} />
+                      ) : forgotMode ? (
+                        "Send Reset Link"
+                      ) : formState === 0 ? (
+                        "Login"
+                      ) : (
+                        "Register"
+                      )}
                     </Button>
                   </motion.div>
                 </Box>
@@ -460,7 +659,12 @@ export default function Authentication() {
           </Grid>
         </Grid>
 
-        <Snackbar open={open} autoHideDuration={4000} message={message} />
+        <Snackbar
+          open={open}
+          autoHideDuration={3500}
+          onClose={() => setOpen(false)}
+          message={message}
+        />
       </ThemeProvider>
     </PageTransition>
   );

@@ -14,6 +14,8 @@ import Authentication from "./pages/authentication";
 import History from "./pages/history";
 import HomeComponent from "./pages/home";
 import LandingPage from "./pages/landing";
+import ResetPassword from "./pages/resetPassword";
+import VerifyEmail from "./pages/verifyEmail";
 import VideoMeetComponent from "./pages/VideoMeet";
 
 function AnimatedRoutes() {
@@ -23,6 +25,8 @@ function AnimatedRoutes() {
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<LandingPage />} />
         <Route path="/auth" element={<Authentication />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route
           path="/home"
           element={

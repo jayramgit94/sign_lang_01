@@ -48,6 +48,7 @@ const VideoMeet = () => {
   const [chatOpen, setChatOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [captionsVisible, setCaptionsVisible] = useState(true);
+  const [showShortcutHints, setShowShortcutHints] = useState(false);
 
   // Meeting tracking refs (persisted across renders, not causing re-renders)
   const meetingIdRef = useRef(null); // DB _id returned from addToHistory
@@ -92,6 +93,9 @@ const VideoMeet = () => {
     video,
     audio,
     screen,
+    canScreenShare,
+    screenShareSupportReason,
+    screenShareError,
     startLocalStream,
     joinRoom,
     endCall: rtcEndCall,
@@ -230,14 +234,29 @@ const VideoMeet = () => {
         case "v":
           toggleVideo();
           break;
+        case "c":
+          handleToggleChat();
+          break;
+        case "p":
+          handleTogglePeople();
+          break;
+        case "k":
+          handleToggleCaptions();
+          break;
+        case "l":
+          toggleSignLang();
+          break;
         case "s":
           if (e.ctrlKey) {
             e.preventDefault();
-            toggleScreenShare();
+            if (canScreenShare) {
+              toggleScreenShare();
+            }
           }
           break;
         case "escape":
           setChatOpen(false);
+          setPeopleOpen(false);
           break;
         default:
           break;
@@ -246,7 +265,49 @@ const VideoMeet = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggleAudio, toggleVideo, toggleScreenShare]);
+  }, [
+    toggleAudio,
+    toggleVideo,
+    toggleScreenShare,
+    canScreenShare,
+    handleToggleChat,
+    handleTogglePeople,
+    handleToggleCaptions,
+    toggleSignLang,
+  ]);
+
+  // Show shortcut helper only while Control key is pressed
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === "Control") {
+        setShowShortcutHints(true);
+      }
+    };
+
+    const onKeyUp = (e) => {
+      if (e.key === "Control") {
+        setShowShortcutHints(false);
+      }
+    };
+
+    const onBlur = () => setShowShortcutHints(false);
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
+
+  // Screen-share runtime errors/support messages
+  useEffect(() => {
+    if (!screenShareError) return;
+    enqueueSnackbar(screenShareError, { variant: "warning" });
+  }, [screenShareError, enqueueSnackbar]);
 
   // --- Lobby view ---
   if (inLobby) {
@@ -305,11 +366,37 @@ const VideoMeet = () => {
         />
       )}
 
+      {showShortcutHints && (
+        <div className={styles.shortcutGuide}>
+          <div className={styles.shortcutGuideTitle}>Keyboard Shortcuts</div>
+          <div className={styles.shortcutGrid}>
+            <span className={styles.shortcutKey}>M</span>
+            <span>Mute / Unmute</span>
+            <span className={styles.shortcutKey}>V</span>
+            <span>Video On / Off</span>
+            <span className={styles.shortcutKey}>C</span>
+            <span>Open / Close Chat</span>
+            <span className={styles.shortcutKey}>P</span>
+            <span>Open / Close People</span>
+            <span className={styles.shortcutKey}>K</span>
+            <span>Show / Hide Captions</span>
+            <span className={styles.shortcutKey}>L</span>
+            <span>Sign Language On / Off</span>
+            <span className={styles.shortcutKey}>Ctrl + S</span>
+            <span>Start / Stop Screen Share</span>
+            <span className={styles.shortcutKey}>Esc</span>
+            <span>Close Side Panels</span>
+          </div>
+        </div>
+      )}
+
       {/* Bottom control bar */}
       <ControlBar
         video={video}
         audio={audio}
         screen={screen}
+        canScreenShare={canScreenShare}
+        screenShareSupportReason={screenShareSupportReason}
         signLangEnabled={signLangEnabled}
         captionsVisible={captionsVisible}
         chatOpen={chatOpen}

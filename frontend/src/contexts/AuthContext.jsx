@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../services/api";
+import api, { ensureCsrfToken } from "../services/api";
 import {
   clearAllTokens,
   getRefreshToken,
@@ -23,6 +23,14 @@ export const AuthProvider = ({ children }) => {
   // which would cause the effect to re-fire and race with login state updates.
   const routerRef = useRef(router);
   routerRef.current = router;
+
+  const getDetailedErrorMessage = (error, fallback) => {
+    const data = error?.response?.data;
+    const firstValidationMessage = Array.isArray(data?.errors)
+      ? data.errors[0]?.message
+      : null;
+    return firstValidationMessage || data?.message || fallback;
+  };
 
   // Check auth status ONCE on mount — tries cookie first, then token refresh fallback
   useEffect(() => {
@@ -82,31 +90,66 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const handleRegister = async (name, username, password) => {
+  const handleRegister = async (name, username, email, password) => {
     try {
-      const res = await api.post("/auth/register", {
+      await ensureCsrfToken();
+      const payload = {
         name,
         username,
         password,
-      });
+      };
+
+      if (email?.trim()) {
+        payload.email = email.trim().toLowerCase();
+      }
+
+      const res = await api.post("/auth/register", payload);
       if (res.data.accessToken) setAccessToken(res.data.accessToken);
       if (res.data.refreshToken) setRefreshToken(res.data.refreshToken);
       setUserData(res.data.user);
-      return { success: true, message: "Registration successful." };
+      return {
+        success: true,
+        message: res.data?.message || "Registration successful.",
+        emailVerificationToken: res.data?.emailVerificationToken,
+      };
     } catch (error) {
       if (!error.response) {
         return { success: false, message: "Unable to reach server." };
       }
+
+      const serverCode = error.response?.data?.code;
+      const validationErrors = error.response?.data?.errors;
+
+      if (serverCode === "USERNAME_TAKEN") {
+        return { success: false, message: "Username already in use. Try another one." };
+      }
+
+      if (serverCode === "EMAIL_ALREADY_REGISTERED") {
+        return {
+          success: false,
+          message: "Email is already registered. Try logging in or use Forgot Password.",
+        };
+      }
+
+      if (error.response?.status === 400) {
+        return {
+          success: false,
+          message: getDetailedErrorMessage(error, "Registration failed."),
+          errors: validationErrors,
+        };
+      }
+
       return {
         success: false,
-        message: error.response?.data?.message || "Registration failed.",
-        errors: error.response?.data?.errors,
+        message: getDetailedErrorMessage(error, "Registration failed."),
+        errors: validationErrors,
       };
     }
   };
 
   const handleLogin = async (username, password) => {
     try {
+      await ensureCsrfToken();
       const res = await api.post("/auth/login", { username, password });
       if (res.data.accessToken) setAccessToken(res.data.accessToken);
       if (res.data.refreshToken) setRefreshToken(res.data.refreshToken);
@@ -117,12 +160,109 @@ export const AuthProvider = ({ children }) => {
       if (!error.response) {
         return { success: false, message: "Unable to reach server." };
       }
+
+      const serverCode = error.response?.data?.code;
+      if (serverCode === "USER_NOT_FOUND") {
+        return {
+          success: false,
+          message: "This username is not registered. Please sign up first.",
+          code: serverCode,
+        };
+      }
+
+      if (serverCode === "WRONG_PASSWORD") {
+        return {
+          success: false,
+          message: "Wrong password. Please try again.",
+          code: serverCode,
+          attemptsRemaining: error.response?.data?.attemptsRemaining,
+        };
+      }
+
+      if (serverCode === "ACCOUNT_LOCKED") {
+        return {
+          success: false,
+          message:
+            "Account temporarily locked after too many failed attempts. Try again in 30 minutes.",
+          code: serverCode,
+        };
+      }
+
       return {
         success: false,
-        message: error.response?.data?.message || "Invalid credentials.",
+        message: getDetailedErrorMessage(error, "Login failed."),
+        attemptsRemaining: error.response?.data?.attemptsRemaining,
+        code: serverCode,
       };
     }
   };
+
+  const handleForgotPassword = async (email) => {
+    try {
+      await ensureCsrfToken();
+      const res = await api.post("/auth/forgot-password", { email });
+      return {
+        success: true,
+        message: res.data?.resetUrl
+          ? "Email service is not configured yet. Use the temporary reset link below."
+          : res.data?.message ||
+            "If email exists, you will receive a password reset link.",
+        resetUrl: res.data?.resetUrl,
+      };
+    } catch (error) {
+      if (!error.response) {
+        return { success: false, message: "Unable to reach server." };
+      }
+      return {
+        success: false,
+        message: getDetailedErrorMessage(error, "Failed to request reset."),
+      };
+    }
+  };
+
+  const handleResetPassword = async (token, newPassword) => {
+    try {
+      await ensureCsrfToken();
+      const res = await api.post("/auth/reset-password", {
+        token,
+        newPassword,
+      });
+      return {
+        success: true,
+        message:
+          res.data?.message ||
+          "Password reset successful. Please login with your new password.",
+      };
+    } catch (error) {
+      if (!error.response) {
+        return { success: false, message: "Unable to reach server." };
+      }
+      return {
+        success: false,
+        message: getDetailedErrorMessage(error, "Failed to reset password."),
+      };
+    }
+  };
+
+  const handleVerifyEmail = useCallback(async (token) => {
+    try {
+      await ensureCsrfToken();
+      const res = await api.post("/auth/verify-email", { token });
+      setUserData(res.data?.user || null);
+      return {
+        success: true,
+        message: res.data?.message || "Email verified successfully.",
+      };
+    } catch (error) {
+      if (!error.response) {
+        return { success: false, message: "Unable to reach server." };
+      }
+      return {
+        success: false,
+        message: getDetailedErrorMessage(error, "Failed to verify email."),
+      };
+    }
+  }, []);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -197,6 +337,9 @@ export const AuthProvider = ({ children }) => {
     getMeetingStats,
     handleRegister,
     handleLogin,
+    handleForgotPassword,
+    handleResetPassword,
+    handleVerifyEmail,
     handleLogout,
   };
 

@@ -23,6 +23,8 @@ const ControlBar = ({
   video,
   audio,
   screen,
+  canScreenShare,
+  screenShareSupportReason,
   signLangEnabled,
   captionsVisible,
   chatOpen,
@@ -64,14 +66,25 @@ const ControlBar = ({
         </Tooltip>
 
         {/* Screen share */}
-        <Tooltip title={screen ? "Stop sharing" : "Share screen"}>
-          <IconButton
-            onClick={onToggleScreen}
-            className={`${styles.controlBtn} ${screen ? styles.controlBtnActive : ""}`}
-            size="large"
-          >
-            {screen ? <StopScreenShare /> : <ScreenShare />}
-          </IconButton>
+        <Tooltip
+          title={
+            canScreenShare
+              ? screen
+                ? "Stop sharing"
+                : "Share screen"
+              : screenShareSupportReason || "Screen sharing not supported"
+          }
+        >
+          <span>
+            <IconButton
+              onClick={onToggleScreen}
+              disabled={!canScreenShare}
+              className={`${styles.controlBtn} ${screen ? styles.controlBtnActive : ""}`}
+              size="large"
+            >
+              {screen ? <StopScreenShare /> : <ScreenShare />}
+            </IconButton>
+          </span>
         </Tooltip>
 
         {/* Sign language recognition toggle */}

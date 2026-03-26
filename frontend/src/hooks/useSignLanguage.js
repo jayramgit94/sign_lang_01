@@ -32,6 +32,8 @@ const flattenLandmarks = (landmarks) => {
 
 const useSignLanguage = ({ localStream, socket, username }) => {
   const [isEnabled, setIsEnabled] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingError, setLoadingError] = useState(null);
   const [captionText, setCaptionText] = useState("");
   const [captionScore, setCaptionScore] = useState(0);
   const [correctedSentence, setCorrectedSentence] = useState("");
@@ -164,11 +166,19 @@ const useSignLanguage = ({ localStream, socket, username }) => {
   const startRecognition = useCallback(async () => {
     if (!localStream) {
       console.warn("[SignLang] No local stream available.");
+
+        setIsLoading(true);
+        setLoadingError(null);
       return;
     }
 
     const signSocket = connectSignServer();
     if (!signSocket) return;
+    if (!signSocket) {
+      setIsLoading(false);
+      setLoadingError("Failed to connect to sign language server");
+      return;
+    }
 
     // Create a hidden video element for MediaPipe
     const videoEl = document.createElement("video");
@@ -187,6 +197,8 @@ const useSignLanguage = ({ localStream, socket, username }) => {
           "[SignLang] MediaPipe scripts not loaded. Ensure CDN scripts are in index.html.",
         );
         signSocket.disconnect();
+          setIsLoading(false);
+          setLoadingError("MediaPipe not loaded. Refresh the page.");
         return;
       }
 
@@ -268,9 +280,13 @@ const useSignLanguage = ({ localStream, socket, username }) => {
       camera.start();
       cameraRef.current = camera;
 
+  setIsLoading(false);
+
       setIsEnabled(true);
     } catch (err) {
       console.error("[SignLang] Initialization failed:", err);
+        setIsLoading(false);
+        setLoadingError(err.message || "Failed to start sign language recognition");
       signSocket.disconnect();
     }
   }, [localStream, connectSignServer]);
@@ -316,6 +332,8 @@ const useSignLanguage = ({ localStream, socket, username }) => {
 
   return {
     isEnabled,
+    isLoading,
+    loadingError,
     toggle,
     captionText,
     captionScore,
