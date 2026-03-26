@@ -1,9 +1,16 @@
 {
-  "Goodbye": 0,
-  "Hello": 1,
-  "I Love You": 2,
-  "No": 3,
-  "Thank You": 4,
-  "Yes": 5,
-  "fuck you!": 6
+  "A": 0,
+  "B": 1,
+  "Congratulations": 2,
+  "H": 4,
+  "Hello": 5,
+  "How": 6,
+  "I Love You": 7,
+  "I": 8,
+  "Is": 9,
+  "My": 10,
+  "Name": 11,
+  "No": 12,
+  "Thank You": 13,
+  "Yes": 14
 }

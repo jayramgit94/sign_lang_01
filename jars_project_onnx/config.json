@@ -4,21 +4,42 @@
       "emoji": "👋"
     },
     "Yes": {
-      "emoji": "👍"
-    },
-    "No": {
-      "emoji": "👎"
-    },
-    "Thank You": {
-      "emoji": "🙏"
-    },
-    "I Love You": {
-      "emoji": "🤟"
-    },
-    "Goodbye": {
       "emoji": ""
     },
-    "fuck you!": {
+    "No": {
+      "emoji": ""
+    },
+    "Thank You": {
+      "emoji": ""
+    },
+    "I Love You": {
+      "emoji": ""
+    },
+    "Congratulations": {
+      "emoji": ""
+    },
+    "How": {
+      "emoji": ""
+    },
+    "My": {
+      "emoji": ""
+    },
+    "Name": {
+      "emoji": ""
+    },
+    "Is": {
+      "emoji": ""
+    },
+    "A": {
+      "emoji": ""
+    },
+    "B": {
+      "emoji": ""
+    },
+    "H": {
+      "emoji": ""
+    },
+    "I": {
       "emoji": ""
     }
   },

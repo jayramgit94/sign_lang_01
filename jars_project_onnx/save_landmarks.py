@@ -16,6 +16,15 @@ import json
 import time
 import os
 import numpy as np
+import argparse
+
+parser = argparse.ArgumentParser(description="Record landmarks for sign dataset")
+parser.add_argument(
+    "--hand-only",
+    action="store_true",
+    help="Capture only hand landmarks (face values will be zero-padded)",
+)
+args = parser.parse_args()
 
 # Resolve paths relative to this script so it works from any working directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -33,11 +42,13 @@ hands = mp_hands.Hands(
 
 # Load pre-trained face mesh model
 mp_face = mp.solutions.face_mesh
-face = mp_face.FaceMesh(
-    static_image_mode=False,        # Video mode
-    max_num_faces=1,                # Detect 1 face
-    min_detection_confidence=0.6    # 60% confidence threshold
-)
+face = None
+if not args.hand_only:
+    face = mp_face.FaceMesh(
+        static_image_mode=False,        # Video mode
+        max_num_faces=1,                # Detect 1 face
+        min_detection_confidence=0.6    # 60% confidence threshold
+    )
 
 # ============ SETUP WEBCAM ============
 # Open webcam (0 = default camera)
@@ -48,7 +59,10 @@ cap = cv2.VideoCapture(0)
 label = input("Enter label for this recording (e.g., 'Hello', 'Yes', 'No'): ").strip()
 out = []
 
-print("Recording... press 'q' to stop")
+print(
+    "Recording... press 'q' to stop",
+    "[MODE: HAND ONLY]" if args.hand_only else "[MODE: HAND + FACE]",
+)
 
 # ============ MAIN RECORDING LOOP ============
 while True:
@@ -65,7 +79,7 @@ while True:
     # Detect hand landmarks
     hand_res = hands.process(img_rgb)
     # Detect face landmarks
-    face_res = face.process(img_rgb)
+    face_res = face.process(img_rgb) if face else None
 
     # ============ BUILD FIXED-SIZE VECTOR ============
     """
@@ -93,7 +107,7 @@ while True:
     
     # Extract face landmarks
     face_land = []
-    if face_res.multi_face_landmarks:
+    if face_res and face_res.multi_face_landmarks:
         # Get first (only) detected face
         for p in face_res.multi_face_landmarks[0].landmark:
             face_land.append([p.x, p.y, p.z])
@@ -136,3 +150,5 @@ print(f"Saved {len(out)} frames to {out_path}")
 # Cleanup
 cap.release()
 cv2.destroyAllWindows()
+if face:
+    face.close()

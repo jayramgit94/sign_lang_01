@@ -12,27 +12,12 @@ Usage:
   # ... after 2 seconds of silence, calls callback_fn with corrected sentence
 """
 
-import json
-import os
 import time
 import threading
 import logging
-import urllib.request
-import urllib.error
+from groq_api_secure import correct_sentence_with_groq
 
 logger = logging.getLogger(__name__)
-
-# ── Groq API Setup ──────────────────────────────────────────────
-# Groq API: https://api.groq.com/openai/v1/chat/completions
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-
-SYSTEM_PROMPT = (
-    "You convert sign language word sequences into natural English sentences. "
-    "Keep the meaning but correct the grammar. "
-    "Reply with ONLY the corrected sentence, nothing else."
-)
 
 # ── Configuration ───────────────────────────────────────────────
 CONFIDENCE_THRESHOLD = 0.8
@@ -51,39 +36,16 @@ def call_groq_api(words: str) -> str:
     Returns:
         Corrected English sentence, or original words if API fails.
     """
-    if not GROQ_API_KEY:
-        logger.warning("[SentenceBuilder] GROQ_API_KEY not set — returning raw words")
-        return words
-
     try:
-        payload = json.dumps(
-            {
-                "model": GROQ_MODEL,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": f"Words:\n{words}"},
-                ],
-                "temperature": 0.3,
-                "max_tokens": 200,
-            }
-        ).encode("utf-8")
-
-        req = urllib.request.Request(
-            GROQ_API_URL,
-            data=payload,
-            headers={
-                "Authorization": f"Bearer {GROQ_API_KEY}",
-                "Content-Type": "application/json",
-                "User-Agent": "ApnaMeet-SignLang/1.0",
-            },
-            method="POST",
-        )
-
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-
-        corrected = data["choices"][0]["message"]["content"].strip()
-        logger.info("[SentenceBuilder] Groq: '%s' → '%s'", words, corrected)
+        result = correct_sentence_with_groq(words)
+        corrected = result.get("corrected") or words
+        if result.get("success"):
+            logger.info("[SentenceBuilder] Groq: '%s' -> '%s'", words, corrected)
+        else:
+            logger.warning(
+                "[SentenceBuilder] Groq fallback used: %s",
+                result.get("error") or "unknown error",
+            )
         return corrected
 
     except Exception as e:

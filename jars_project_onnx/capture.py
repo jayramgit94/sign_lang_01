@@ -48,10 +48,14 @@ _URLS = {
     HAND_MODEL: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task",
     FACE_MODEL: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task",
 }
-for path, url in _URLS.items():
-    if not os.path.exists(path):
-        print(f"Downloading {os.path.basename(path)}...")
-        urllib.request.urlretrieve(url, path)
+
+
+def ensure_model(path):
+    """Download MediaPipe task model on demand if not present locally."""
+    if os.path.exists(path):
+        return
+    print(f"Downloading {os.path.basename(path)}...")
+    urllib.request.urlretrieve(_URLS[path], path)
 
 
 # ======================================================================
@@ -117,7 +121,9 @@ SIGN_HINTS = {
 #  MEDIAPIPE DETECTORS (Tasks API — works with v0.10+)
 # ======================================================================
 
-def create_detectors():
+def create_detectors(use_face=True):
+    """Create MediaPipe detectors. Face detector is optional for hand-only mode."""
+    ensure_model(HAND_MODEL)
     BO = mp.tasks.BaseOptions
     hands = mp.tasks.vision.HandLandmarker.create_from_options(
         mp.tasks.vision.HandLandmarkerOptions(
@@ -128,18 +134,21 @@ def create_detectors():
             min_tracking_confidence=CAP_CFG["min_hand_confidence"],
         )
     )
-    face = mp.tasks.vision.FaceLandmarker.create_from_options(
-        mp.tasks.vision.FaceLandmarkerOptions(
-            base_options=BO(model_asset_path=FACE_MODEL),
-            running_mode=mp.tasks.vision.RunningMode.IMAGE,
-            num_faces=1,
-            min_face_detection_confidence=CAP_CFG["min_face_confidence"],
+    face = None
+    if use_face:
+        ensure_model(FACE_MODEL)
+        face = mp.tasks.vision.FaceLandmarker.create_from_options(
+            mp.tasks.vision.FaceLandmarkerOptions(
+                base_options=BO(model_asset_path=FACE_MODEL),
+                running_mode=mp.tasks.vision.RunningMode.IMAGE,
+                num_faces=1,
+                min_face_detection_confidence=CAP_CFG["min_face_confidence"],
+            )
         )
-    )
     return hands, face
 
 
-def extract_vector(hand_res, face_res):
+def extract_vector(hand_res, face_res, include_face=True):
     """Build fixed-size 1530-element vector from detection results."""
     hand_lm = []
     if hand_res.hand_landmarks:
@@ -151,7 +160,7 @@ def extract_vector(hand_res, face_res):
     hand_lm = hand_lm[:HAND_POINTS]
 
     face_lm = []
-    if face_res.face_landmarks:
+    if include_face and face_res and face_res.face_landmarks:
         for p in face_res.face_landmarks[0]:
             face_lm.append([p.x, p.y, p.z])
     while len(face_lm) < FACE_POINTS:
@@ -168,7 +177,7 @@ def extract_vector(hand_res, face_res):
 #  HUD OVERLAY
 # ======================================================================
 
-def draw_hud(frame, label, count, target, status, hint, valid_pct):
+def draw_hud(frame, label, count, target, status, hint, valid_pct, mode_text):
     h, w = frame.shape[:2]
     color = {"VALID": (0, 255, 0), "WRONG_POSE": (0, 165, 255)}.get(status, (0, 0, 255))
 
@@ -179,6 +188,8 @@ def draw_hud(frame, label, count, target, status, hint, valid_pct):
     emoji = SIGNS.get(label, {}).get("emoji", "")
     cv2.putText(frame, f"Recording: {label}  {emoji}", (10, 25),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(frame, f"Mode: {mode_text}", (10, 45),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (120, 255, 180), 1)
     cv2.putText(frame, f"Hint: {hint}", (10, 50),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
 
@@ -205,7 +216,7 @@ def draw_hud(frame, label, count, target, status, hint, valid_pct):
 #  CAPTURE ONE SIGN
 # ======================================================================
 
-def capture_sign(label, target_frames, hands, face, cap):
+def capture_sign(label, target_frames, hands, face, cap, include_face=True):
     """Capture validated frames for a single sign. Returns (frames_list, quit_signal)."""
     validator = VALIDATORS.get(label)
     hint = SIGN_HINTS.get(label, "Show the gesture clearly")
@@ -217,6 +228,8 @@ def capture_sign(label, target_frames, hands, face, cap):
     frames = []
     total_checked = valid_count = 0
 
+    mode_text = "Hand + Face" if include_face else "Hand Only"
+
     while len(frames) < target_frames:
         ret, img = cap.read()
         if not ret:
@@ -225,7 +238,7 @@ def capture_sign(label, target_frames, hands, face, cap):
         rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
         hand_res = hands.detect(mp_img)
-        face_res = face.detect(mp_img)
+        face_res = face.detect(mp_img) if include_face and face else None
 
         has_hand = bool(hand_res.hand_landmarks)
 
@@ -245,12 +258,28 @@ def capture_sign(label, target_frames, hands, face, cap):
             status = "NO_HAND"
 
         valid_pct = (valid_count / max(total_checked, 1)) * 100
-        draw_hud(img, label, len(frames), target_frames, status, hint, valid_pct)
+        draw_hud(
+            img,
+            label,
+            len(frames),
+            target_frames,
+            status,
+            hint,
+            valid_pct,
+            mode_text,
+        )
         cv2.imshow("SignLang Capture", img)
 
         if status == "VALID":
-            vec = extract_vector(hand_res, face_res)
-            frames.append({"timestamp": time.time(), "label": label, "vector": vec.tolist()})
+            vec = extract_vector(hand_res, face_res, include_face=include_face)
+            frames.append(
+                {
+                    "timestamp": time.time(),
+                    "label": label,
+                    "vector": vec.tolist(),
+                    "capture_mode": "hand_only" if not include_face else "hand_face",
+                }
+            )
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):
@@ -314,6 +343,11 @@ def main():
                         help=f"Frames per sign (default: {CAP_CFG['target_frames']})")
     parser.add_argument("--all", action="store_true", help="Capture ALL signs sequentially")
     parser.add_argument("--skip", nargs="*", default=[], help="Signs to skip (with --all)")
+    parser.add_argument(
+        "--hand-only",
+        action="store_true",
+        help="Capture only hand landmarks (face vector is zero-padded).",
+    )
     args = parser.parse_args()
 
     if not SIGNS:
@@ -321,7 +355,13 @@ def main():
         print("  python manage_signs.py add \"Hello\" \"👋\"\n")
         return
 
-    hands, face = create_detectors()
+    include_face = not args.hand_only
+    print(
+        "\n  Capture mode:",
+        "HAND ONLY (faster, no face detector)" if not include_face else "HAND + FACE",
+    )
+
+    hands, face = create_detectors(use_face=include_face)
     cap = cv2.VideoCapture(CAP_CFG["camera_index"])
     if not cap.isOpened():
         print("ERROR: Cannot open camera!")
@@ -358,7 +398,14 @@ def main():
                         cv2.waitKey(1000)
 
                 print(f"\n  [{i+1}/{len(sign_names)}] {SIGNS[name].get('emoji', '')} {name}")
-                frames, quit_all = capture_sign(name, args.frames, hands, face, cap)
+                frames, quit_all = capture_sign(
+                    name,
+                    args.frames,
+                    hands,
+                    face,
+                    cap,
+                    include_face=include_face,
+                )
                 save_frames(name, frames)
                 results[name] = len(frames)
                 if quit_all:
@@ -383,7 +430,14 @@ def main():
             if args.label not in SIGNS:
                 print(f"\n  Sign \"{args.label}\" not in config. Available: {', '.join(sorted(SIGNS.keys()))}\n")
                 return
-            frames, _ = capture_sign(args.label, args.frames, hands, face, cap)
+            frames, _ = capture_sign(
+                args.label,
+                args.frames,
+                hands,
+                face,
+                cap,
+                include_face=include_face,
+            )
             save_frames(args.label, frames)
 
         else:
@@ -392,14 +446,22 @@ def main():
                 label = pick_label()
                 if label is None:
                     break
-                frames, quit_all = capture_sign(label, args.frames, hands, face, cap)
+                frames, quit_all = capture_sign(
+                    label,
+                    args.frames,
+                    hands,
+                    face,
+                    cap,
+                    include_face=include_face,
+                )
                 save_frames(label, frames)
                 if quit_all:
                     break
 
     finally:
         hands.close()
-        face.close()
+        if face:
+            face.close()
         cap.release()
         cv2.destroyAllWindows()
 
