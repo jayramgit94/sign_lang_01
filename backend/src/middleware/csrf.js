@@ -6,6 +6,7 @@
  */
 
 import crypto from "crypto";
+import config from "../config/index.js";
 
 const CSRF_TOKEN_LENGTH = 32;
 const CSRF_COOKIE_NAME = "XSRF-TOKEN";
@@ -30,9 +31,11 @@ export const csrfProtection = (req, res, next) => {
     // Set httpOnly: false so JavaScript can read it for headers
     res.cookie(CSRF_COOKIE_NAME, token, {
       httpOnly: false,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: config.isProd,
+      // Cross-origin SPA (Vercel -> API domain) requires SameSite=None.
+      sameSite: config.isProd ? "none" : "strict",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      path: "/",
     });
   }
 

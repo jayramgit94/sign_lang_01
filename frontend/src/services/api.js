@@ -23,9 +23,10 @@ const getCookieValue = (name) => {
 };
 
 let csrfInitPromise = null;
+let csrfTokenCache = "";
 
 const bootstrapCsrfToken = async () => {
-  const existing = getCookieValue(CSRF_COOKIE_NAME);
+  const existing = csrfTokenCache || getCookieValue(CSRF_COOKIE_NAME);
   if (existing) return existing;
 
   if (!csrfInitPromise) {
@@ -34,13 +35,19 @@ const bootstrapCsrfToken = async () => {
         withCredentials: true,
         timeout: 7000,
       })
+      .then((res) => {
+        const tokenFromBody = res?.data?.csrfToken;
+        if (typeof tokenFromBody === "string" && tokenFromBody.length > 0) {
+          csrfTokenCache = tokenFromBody;
+        }
+      })
       .finally(() => {
         csrfInitPromise = null;
       });
   }
 
   await csrfInitPromise;
-  return getCookieValue(CSRF_COOKIE_NAME);
+  return csrfTokenCache || getCookieValue(CSRF_COOKIE_NAME);
 };
 
 const api = axios.create({
@@ -64,7 +71,7 @@ api.interceptors.request.use(async (config) => {
   const isCsrfBootstrap = (config.url || "").includes("/auth/csrf-token");
 
   if (isMutating && !isCsrfBootstrap) {
-    let csrfToken = getCookieValue(CSRF_COOKIE_NAME);
+    let csrfToken = csrfTokenCache || getCookieValue(CSRF_COOKIE_NAME);
     if (!csrfToken) {
       csrfToken = await bootstrapCsrfToken();
     }
@@ -91,6 +98,7 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const data = error.response?.data || {};
     const url = originalRequest.url || "";
 
     // Don't attempt refresh for auth check or refresh endpoints
@@ -99,6 +107,26 @@ api.interceptors.response.use(
       url.includes("/auth/refresh") ||
       url.includes("/auth/login") ||
       url.includes("/auth/register");
+
+    // If CSRF token expired/missing, re-bootstrap once and retry the request.
+    const isCsrfFailure =
+      error.response?.status === 403 &&
+      (data.code === "CSRF_TOKEN_MISSING" || data.code === "CSRF_TOKEN_INVALID");
+
+    if (isCsrfFailure && !originalRequest._csrfRetry) {
+      originalRequest._csrfRetry = true;
+      csrfTokenCache = "";
+      try {
+        const csrfToken = await bootstrapCsrfToken();
+        if (csrfToken) {
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers["X-XSRF-TOKEN"] = csrfToken;
+        }
+        return api(originalRequest);
+      } catch (csrfErr) {
+        return Promise.reject(csrfErr);
+      }
+    }
 
     // If 401 and not already retrying, attempt token refresh
     if (
