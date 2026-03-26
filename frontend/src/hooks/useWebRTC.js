@@ -37,6 +37,54 @@ const useWebRTC = ({ socket, username }) => {
   const [audio, setAudio] = useState(false);
   const [screen, setScreen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [canScreenShare, setCanScreenShare] = useState(false);
+  const [screenShareSupportReason, setScreenShareSupportReason] =
+    useState("Screen sharing is not available on this device/browser.");
+  const [screenShareError, setScreenShareError] = useState("");
+
+  // Detect screen-share support once on mount
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof navigator === "undefined") {
+      setCanScreenShare(false);
+      setScreenShareSupportReason("Screen sharing is unavailable in this environment.");
+      return;
+    }
+
+    const ua = navigator.userAgent || "";
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    const hasDisplayMedia = !!navigator.mediaDevices?.getDisplayMedia;
+    const isSecure =
+      window.isSecureContext ||
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+
+    if (!hasDisplayMedia) {
+      setCanScreenShare(false);
+      setScreenShareSupportReason(
+        "Your browser does not support screen sharing. Try latest Chrome or Edge.",
+      );
+      return;
+    }
+
+    if (!isSecure) {
+      setCanScreenShare(false);
+      setScreenShareSupportReason(
+        "Screen sharing requires HTTPS (or localhost in development).",
+      );
+      return;
+    }
+
+    if (isIOS) {
+      setCanScreenShare(false);
+      setScreenShareSupportReason(
+        "Screen sharing is limited on iOS browsers. Use desktop or Android Chrome.",
+      );
+      return;
+    }
+
+    setCanScreenShare(true);
+    setScreenShareSupportReason("");
+  }, []);
 
   // Sync remoteStreamsRef → state (includes peer media status)
   const syncRemoteStreams = useCallback(() => {
@@ -475,15 +523,71 @@ const useWebRTC = ({ socket, username }) => {
   }, []);
 
   // --- Toggle Video ---
-  const toggleVideo = useCallback(() => {
+  const toggleVideo = useCallback(async () => {
     const stream = localStreamRef.current;
     if (!stream) return;
 
-    const videoTrack = stream.getVideoTracks()[0];
-    if (videoTrack) {
+    let videoTrack = stream.getVideoTracks()[0];
+
+    // Normal path: flip the enabled flag on the current live camera track.
+    if (videoTrack && videoTrack.readyState === "live") {
       videoTrack.enabled = !videoTrack.enabled;
       setVideo(videoTrack.enabled);
       socket?.emit("media-state-update", { video: videoTrack.enabled });
+      return;
+    }
+
+    // Recovery path: the stream has no live video track (e.g. started audio-only
+    // or camera track ended). Request a fresh camera track and publish it.
+    if (videoTrack) {
+      try {
+        stream.removeTrack(videoTrack);
+      } catch {
+        // removeTrack can fail in some browsers if the track was already detached.
+      }
+      videoTrack.stop();
+      videoTrack = null;
+    }
+
+    try {
+      const camStream = await navigator.mediaDevices.getUserMedia({
+        video: MEDIA_CONSTRAINTS.video,
+        audio: false,
+      });
+
+      const newTrack = camStream.getVideoTracks()[0];
+      if (!newTrack) {
+        setVideo(false);
+        socket?.emit("media-state-update", { video: false });
+        return;
+      }
+
+      stream.addTrack(newTrack);
+
+      for (const pc of connectionsRef.current.values()) {
+        try {
+          const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+          if (sender) {
+            await sender.replaceTrack(newTrack);
+          } else {
+            pc.addTrack(newTrack, stream);
+          }
+        } catch (err) {
+          console.error("[WebRTC] Failed to attach new camera track:", err);
+        }
+      }
+
+      newTrack.onended = () => {
+        setVideo(false);
+        socket?.emit("media-state-update", { video: false });
+      };
+
+      setVideo(true);
+      socket?.emit("media-state-update", { video: true });
+    } catch (err) {
+      console.error("[WebRTC] Could not re-enable camera:", err);
+      setVideo(false);
+      socket?.emit("media-state-update", { video: false });
     }
   }, [socket]);
 
@@ -501,47 +605,117 @@ const useWebRTC = ({ socket, username }) => {
   }, [socket]);
 
   // --- Toggle Screen Share ---
-  const toggleScreenShare = useCallback(async () => {
-    if (screen && screenStreamRef.current) {
-      // Stop screen share — revert to camera
-      screenStreamRef.current.getTracks().forEach((t) => t.stop());
-      screenStreamRef.current = null;
+  const stopScreenShare = useCallback(async () => {
+    if (!screenStreamRef.current) {
       setScreen(false);
+      return;
+    }
 
-      // Replace screen track with camera track in all peer connections
-      const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
-      if (cameraTrack) {
-        for (const pc of connectionsRef.current.values()) {
-          const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-          if (sender) await sender.replaceTrack(cameraTrack);
+    screenStreamRef.current.getTracks().forEach((t) => t.stop());
+    screenStreamRef.current = null;
+    setScreen(false);
+    socket?.emit("screen-share", { active: false });
+
+    const cameraTrack = localStreamRef.current?.getVideoTracks()?.[0];
+    if (!cameraTrack) {
+      console.warn("[WebRTC] Camera track not available after screen share stop");
+      return;
+    }
+
+    const errors = [];
+    for (const pc of connectionsRef.current.values()) {
+      try {
+        const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+        if (sender) {
+          await sender.replaceTrack(cameraTrack);
         }
+      } catch (err) {
+        console.error("[WebRTC] Failed to replace screen with camera track:", err);
+        errors.push(err);
       }
+    }
+
+    if (errors.length > 0) {
+      console.warn(`[WebRTC] ${errors.length} peers failed to restore camera track`);
+    }
+  }, [socket]);
+
+  const toggleScreenShare = useCallback(async () => {
+    setScreenShareError("");
+
+    if (!canScreenShare) {
+      setScreenShareError(
+        screenShareSupportReason ||
+          "Screen sharing is not available on this device/browser.",
+      );
+      return;
+    }
+
+    if (screenStreamRef.current) {
+      await stopScreenShare();
       return;
     }
 
     try {
+      // Request screen
       const screenStream =
         await navigator.mediaDevices.getDisplayMedia(SCREEN_CONSTRAINTS);
       screenStreamRef.current = screenStream;
       setScreen(true);
 
+      // Emit socket event to notify peers
+      socket?.emit("screen-share", { active: true });
+
       const screenTrack = screenStream.getVideoTracks()[0];
+      if (!screenTrack) {
+        console.error("[WebRTC] No video track in screen stream");
+        setScreen(false);
+        return;
+      }
 
       // Replace camera track with screen track in all peers
+      const trackErrors = [];
       for (const pc of connectionsRef.current.values()) {
-        const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-        if (sender) await sender.replaceTrack(screenTrack);
+        try {
+          const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+          if (sender) {
+            await sender.replaceTrack(screenTrack);
+          }
+        } catch (err) {
+          console.error("[WebRTC] Failed to replace track with screen:", err);
+          trackErrors.push(err);
+        }
       }
 
       // Handle user stopping screen share via browser UI
       screenTrack.onended = () => {
-        toggleScreenShare();
+        if (!screenStreamRef.current) return;
+        void stopScreenShare();
       };
+
+      if (trackErrors.length > 0) {
+        console.warn(
+          `[WebRTC] ${trackErrors.length} peers failed to update screen track`,
+        );
+      }
     } catch (err) {
       console.error("[WebRTC] Screen share failed:", err);
       setScreen(false);
+
+      const messageByName = {
+        NotAllowedError:
+          "Screen sharing permission denied. Please allow screen sharing.",
+        NotFoundError: "No screen or window source found to share.",
+        AbortError: "Screen sharing was cancelled.",
+        NotSupportedError: "Screen sharing is not supported in this browser.",
+      };
+
+      setScreenShareError(
+        messageByName[err?.name] ||
+          "Could not start screen sharing. Please try again.",
+      );
     }
-  }, [screen]);
+  }, [canScreenShare, screenShareSupportReason, stopScreenShare]);
 
   // --- Join Room ---
   const joinRoom = useCallback(
@@ -638,6 +812,9 @@ const useWebRTC = ({ socket, username }) => {
     video,
     audio,
     screen,
+    canScreenShare,
+    screenShareSupportReason,
+    screenShareError,
     isConnected,
     startLocalStream,
     joinRoom,

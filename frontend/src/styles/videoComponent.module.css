@@ -974,6 +974,48 @@
   backdrop-filter: blur(8px);
 }
 
+.shortcutGuide {
+  position: absolute;
+  right: 16px;
+  bottom: 98px;
+  z-index: 30;
+  width: min(380px, calc(100vw - 24px));
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(12px);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
+}
+
+.shortcutGuideTitle {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #bfdbfe;
+  margin-bottom: 8px;
+}
+
+.shortcutGrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 10px;
+  font-size: 0.78rem;
+  color: #e2e8f0;
+}
+
+.shortcutKey {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(147, 197, 253, 0.35);
+  color: #dbeafe;
+  font-weight: 600;
+}
+
 @media (max-width: 900px) {
   .chatPanel {
     width: 100%;
@@ -1013,9 +1055,52 @@
   .captionOverlay {
     bottom: 100px;
   }
+
+  .shortcutGuide {
+    right: 8px;
+    left: 8px;
+    width: auto;
+    bottom: 88px;
+  }
 }
 
 @media (max-width: 600px) {
+  .meetContainer {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .videoArea {
+    padding: 10px 6px 116px;
+  }
+
+  .controlBar {
+    padding: 8px 8px calc(10px + env(safe-area-inset-bottom));
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .controlGroup {
+    width: 100%;
+    gap: 6px;
+    overflow-x: auto;
+    justify-content: flex-start;
+    scrollbar-width: none;
+  }
+
+  .controlGroup::-webkit-scrollbar {
+    display: none;
+  }
+
+  .controlBtn {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .endCallBtn {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
   .videoTile {
     border-radius: 12px;
     aspect-ratio: auto;
