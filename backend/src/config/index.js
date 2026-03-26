@@ -55,6 +55,16 @@ const config = {
     minLength: 8,
     maxLength: 128,
   },
+
+  // ── Email / SMTP ──
+  mail: {
+    host: process.env.SMTP_HOST || "",
+    port: parseInt(process.env.SMTP_PORT || "0", 10) || 0,
+    secure: process.env.SMTP_SECURE === "true",
+    user: process.env.SMTP_USER || "",
+    pass: process.env.SMTP_PASS || "",
+    from: process.env.MAIL_FROM || "Apna Meet <no-reply@apnameet.local>",
+  },
 };
 
 // ── Validation ──
@@ -64,6 +74,17 @@ if (config.isProd) {
   if (missing.length > 0) {
     console.error(`FATAL: Missing required env vars: ${missing.join(", ")}`);
     process.exit(1);
+  }
+
+  if (
+    !config.mail.host ||
+    !config.mail.port ||
+    !config.mail.user ||
+    !config.mail.pass
+  ) {
+    console.warn(
+      "[Config] SMTP is not configured. Forgot-password emails will not be sent.",
+    );
   }
 }
 

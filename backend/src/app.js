@@ -25,6 +25,7 @@ import config from "./config/index.js";
 // Middleware
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { generalLimiter } from "./middleware/rateLimiter.js";
+import { auditMiddleware } from "./services/audit.service.js";
 
 // Routes
 import authRoutes from "./routes/auth.routes.js";
@@ -56,8 +57,20 @@ app.use(cookieParser());
 app.use(express.json({ limit: "50kb" }));
 app.use(express.urlencoded({ extended: true, limit: "50kb" }));
 
+// Enforce HTTPS in production when running behind a trusted proxy.
+if (config.isProd) {
+  app.use((req, res, next) => {
+    const isSecure = req.secure || req.headers["x-forwarded-proto"] === "https";
+    if (isSecure) return next();
+    return res.redirect(301, `https://${req.headers.host}${req.originalUrl}`);
+  });
+}
+
 // ─── Rate Limiting ───────────────────────────────────────────────
 app.use(generalLimiter);
+
+// ─── Audit Logging ───────────────────────────────────────────────
+app.use(auditMiddleware());
 
 // ─── API Routes ──────────────────────────────────────────────────
 app.use("/api/v1/auth", authRoutes);

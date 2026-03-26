@@ -14,7 +14,10 @@ export const validate = (schema) => (req, res, next) => {
       field: issue.path.join("."),
       message: issue.message,
     }));
-    return res.status(400).json({ message: "Validation failed.", errors });
+    return res.status(400).json({
+      message: errors[0]?.message || "Validation failed.",
+      errors,
+    });
   }
 
   // Replace req fields with parsed (coerced/transformed) values

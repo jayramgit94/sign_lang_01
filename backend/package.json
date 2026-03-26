@@ -9,7 +9,10 @@
   "scripts": {
     "dev": "nodemon src/app.js",
     "start": "node src/app.js",
-    "prod": "node src/app.js"
+    "prod": "node src/app.js",
+    "check:env": "node scripts/env-hygiene-check.js",
+    "check:env:prod": "node scripts/env-hygiene-check.js --production",
+    "test:security": "node scripts/security-smoke-test.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -21,6 +24,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.0.2",
+    "nodemailer": "^8.0.4",
     "socket.io": "^4.8.3",
     "zod": "^4.3.6"
   },
