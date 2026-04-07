@@ -53,11 +53,19 @@ function HomeComponent() {
   const { addToUserHistory, handleLogout } = useContext(AuthContext);
 
   let handleJoinVideoCall = async () => {
-    const code = meetingCode.trim();
+    const code = meetingCode.trim().toLowerCase();
     if (!code) {
       enqueueSnackbar("Please enter a meeting code.", { variant: "warning" });
       return;
     }
+
+    if (!/^[a-z]{6}$/.test(code)) {
+      enqueueSnackbar("Meeting code must be exactly 6 letters.", {
+        variant: "warning",
+      });
+      return;
+    }
+
     await addToUserHistory(code);
     navigate(`/${code}`);
   };
@@ -155,6 +163,7 @@ function HomeComponent() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleJoinVideoCall();
                 }}
+                inputProps={{ maxLength: 6 }}
                 id="outlined-basic"
                 label="Meeting code"
                 variant="outlined"

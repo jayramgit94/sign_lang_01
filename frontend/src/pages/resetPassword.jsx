@@ -78,8 +78,13 @@ export default function ResetPassword() {
       return false;
     }
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return false;
+    }
+
+    if (!/^[a-zA-Z]+$/.test(password)) {
+      setError("Password must contain only letters.");
       return false;
     }
 

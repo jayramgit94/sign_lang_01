@@ -3,16 +3,14 @@
  */
 
 /**
- * Generate a meeting code (human-readable format: xxx-xxxx-xxx).
+ * Generate a simple 6-letter meeting code.
  */
 export const generateMeetingCode = () => {
   const chars = "abcdefghijklmnopqrstuvwxyz";
-  const rand = (len) =>
-    Array.from(
-      { length: len },
-      () => chars[Math.floor(Math.random() * chars.length)],
-    ).join("");
-  return `${rand(3)}-${rand(4)}-${rand(3)}`;
+  return Array.from(
+    { length: 6 },
+    () => chars[Math.floor(Math.random() * chars.length)],
+  ).join("");
 };
 
 /**

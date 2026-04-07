@@ -143,9 +143,9 @@ export const addToHistory = async (req, res, next) => {
       return res.status(400).json({ message: "Meeting code is required." });
     }
 
-    const sanitized = meetingCode.trim().slice(0, 100);
-    if (!sanitized || !/^[\w-]+$/.test(sanitized)) {
-      return res.status(400).json({ message: "Invalid meeting code format." });
+    const sanitized = meetingCode.trim().toLowerCase();
+    if (!/^[a-z]{6}$/.test(sanitized)) {
+      return res.status(400).json({ message: "Meeting code must be exactly 6 letters." });
     }
 
     const meeting = await Meeting.create({

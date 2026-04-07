@@ -9,10 +9,16 @@ export const registerRoomHandlers = (io, socket) => {
    * @param {{ roomCode: string, username?: string }} data
    */
   socket.on("join-room", (data) => {
-    const { roomCode } = data || {};
+    const roomCode = (data?.roomCode || "").trim().toLowerCase();
 
-    if (!roomCode || typeof roomCode !== "string") {
+    if (!roomCode) {
       return socket.emit("error", { message: "Room code is required." });
+    }
+
+    if (!/^[a-z]{6}$/.test(roomCode)) {
+      return socket.emit("error", {
+        message: "Room code must be exactly 6 letters.",
+      });
     }
 
     const username = socket.username || data.username || "Guest";

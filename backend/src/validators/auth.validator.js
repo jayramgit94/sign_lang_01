@@ -29,12 +29,10 @@ export const registerSchema = z.object({
       .optional(),
     password: z
       .string()
-      .min(8, "Password must be at least 8 characters.")
+      .min(6, "Password must be at least 6 characters.")
       .max(128, "Password cannot exceed 128 characters.")
-      .regex(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[a-zA-Z\d@$!%*?&]{8,128}$/,
-        "Password must contain uppercase, lowercase, number, and special character.",
-      ),
+      // Temporary relaxed rule: simple alphabetic passwords are allowed.
+      .regex(/^[a-zA-Z]+$/, "Password must contain only letters."),
   }),
 });
 
@@ -66,11 +64,9 @@ export const resetPasswordSchema = z.object({
     token: z.string().min(1, "Reset token is required."),
     newPassword: z
       .string()
-      .min(8, "Password must be at least 8 characters.")
+      .min(6, "Password must be at least 6 characters.")
       .max(128, "Password cannot exceed 128 characters.")
-      .regex(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[a-zA-Z\d@$!%*?&]{8,128}$/,
-        "Password must contain uppercase, lowercase, number, and special character.",
-      ),
+      // Temporary relaxed rule: simple alphabetic passwords are allowed.
+      .regex(/^[a-zA-Z]+$/, "Password must contain only letters."),
   }),
 });

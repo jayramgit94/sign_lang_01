@@ -7,8 +7,9 @@ export const joinRoomSchema = z.object({
   params: z.object({
     code: z
       .string()
-      .min(1, "Room code is required.")
-      .max(100, "Invalid room code."),
+      .trim()
+      .toLowerCase()
+      .regex(/^[a-z]{6}$/, "Room code must be exactly 6 letters."),
   }),
 });
 
