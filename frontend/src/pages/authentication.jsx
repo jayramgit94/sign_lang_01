@@ -12,23 +12,15 @@ import InputAdornment from "@mui/material/InputAdornment";
 import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
+import { ThemeProvider } from "@mui/material/styles";
 import { AnimatePresence, motion } from "framer-motion";
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import PageTransition from "../components/common/PageTransition";
 import { AuthContext } from "../contexts/AuthContext";
+import muiTheme from "../theme/muiTheme";
 
-const theme = createTheme({
-  palette: {
-    primary: { main: "#6366f1" },
-    background: { default: "#060a13" },
-  },
-  typography: {
-    fontFamily: "'Inter', 'Segoe UI', sans-serif",
-  },
-  shape: { borderRadius: 12 },
-});
+const theme = muiTheme;
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 20 },

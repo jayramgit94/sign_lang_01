@@ -11,6 +11,9 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ADAPTIVE_BITRATE_FACTORS,
+  ADAPTIVE_VIDEO_PROFILES,
+  ADAPTIVE_VIDEO_THRESHOLDS,
   BITRATE_TIERS,
   ICE_SERVERS,
   MEDIA_CONSTRAINTS,
@@ -41,6 +44,8 @@ const useWebRTC = ({ socket, username }) => {
   const [screenShareSupportReason, setScreenShareSupportReason] =
     useState("Screen sharing is not available on this device/browser.");
   const [screenShareError, setScreenShareError] = useState("");
+  const videoProfileRef = useRef("high");
+  const bitrateFactorRef = useRef(1);
 
   // Detect screen-share support once on mount
   useEffect(() => {
@@ -122,10 +127,13 @@ const useWebRTC = ({ socket, username }) => {
         const params = sender.getParameters();
         if (!params.encodings?.[0]) continue;
 
+        const factor = bitrateFactorRef.current || 1;
+        const audioFactor = Math.max(0.75, factor);
+
         if (sender.track.kind === "video") {
-          params.encodings[0].maxBitrate = tier.video * 1000;
+          params.encodings[0].maxBitrate = Math.round(tier.video * factor * 1000);
         } else if (sender.track.kind === "audio") {
-          params.encodings[0].maxBitrate = tier.audio * 1000;
+          params.encodings[0].maxBitrate = Math.round(tier.audio * audioFactor * 1000);
         }
 
         try {
@@ -136,6 +144,96 @@ const useWebRTC = ({ socket, username }) => {
       }
     }
   }, []);
+
+  const applyAdaptiveVideoConstraints = useCallback(
+    async (profileId) => {
+      if (screenStreamRef.current) return;
+
+      const stream = localStreamRef.current;
+      const track = stream?.getVideoTracks?.()[0];
+      if (!track || typeof track.applyConstraints !== "function") return;
+
+      if (videoProfileRef.current === profileId) return;
+
+      const profile = ADAPTIVE_VIDEO_PROFILES[profileId];
+      if (!profile) return;
+
+      try {
+        await track.applyConstraints({
+          width: { ideal: profile.width, max: profile.width },
+          height: { ideal: profile.height, max: profile.height },
+          frameRate: { ideal: profile.fps, max: profile.fps },
+        });
+        videoProfileRef.current = profileId;
+      } catch {
+        // Ignore constraint failures on unsupported devices.
+      }
+    },
+    [],
+  );
+
+  const measureNetworkAndAdapt = useCallback(async () => {
+    const connections = connectionsRef.current;
+    if (!connections || connections.size === 0) return;
+
+    let totalRtt = 0;
+    let rttCount = 0;
+    let totalPacketsLost = 0;
+    let totalPacketsReceived = 0;
+
+    for (const pc of connections.values()) {
+      if (pc.connectionState !== "connected") continue;
+
+      try {
+        const report = await pc.getStats();
+        report.forEach((stat) => {
+          if (stat.type === "candidate-pair" && stat.state === "succeeded") {
+            totalRtt += stat.currentRoundTripTime || 0;
+            rttCount++;
+          }
+          if (stat.type === "inbound-rtp" && stat.kind === "video") {
+            totalPacketsLost += stat.packetsLost || 0;
+            totalPacketsReceived += stat.packetsReceived || 0;
+          }
+        });
+      } catch {
+        // Stats may not be available
+      }
+    }
+
+    if (rttCount === 0) return;
+
+    const avgRttMs = (totalRtt / rttCount) * 1000;
+    const totalPackets = totalPacketsLost + totalPacketsReceived;
+    const lossPct = totalPackets > 0 ? (totalPacketsLost / totalPackets) * 100 : 0;
+
+    let nextProfile = "high";
+    if (
+      avgRttMs >= ADAPTIVE_VIDEO_THRESHOLDS.low.rttMs ||
+      lossPct >= ADAPTIVE_VIDEO_THRESHOLDS.low.lossPct
+    ) {
+      nextProfile = "low";
+    } else if (
+      avgRttMs >= ADAPTIVE_VIDEO_THRESHOLDS.medium.rttMs ||
+      lossPct >= ADAPTIVE_VIDEO_THRESHOLDS.medium.lossPct
+    ) {
+      nextProfile = "medium";
+    }
+
+    bitrateFactorRef.current =
+      ADAPTIVE_BITRATE_FACTORS[nextProfile] ?? ADAPTIVE_BITRATE_FACTORS.high;
+
+    await applyAdaptiveVideoConstraints(nextProfile);
+    await adjustBitrate();
+  }, [adjustBitrate, applyAdaptiveVideoConstraints]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      void measureNetworkAndAdapt();
+    }, 8000);
+
+    return () => clearInterval(intervalId);
+  }, [measureNetworkAndAdapt]);
 
   // --- Create Peer Connection ---
   // @param {string} peerId
@@ -460,7 +558,7 @@ const useWebRTC = ({ socket, username }) => {
       socket.off("ice-candidate", handleIceCandidate);
       socket.off("peer-media-update", handlePeerMediaUpdate);
     };
-  }, [socket]);
+  }, [socket, syncRemoteStreams]);
 
   // --- Re-join room on socket reconnect ---
   useEffect(() => {
@@ -715,7 +813,7 @@ const useWebRTC = ({ socket, username }) => {
           "Could not start screen sharing. Please try again.",
       );
     }
-  }, [canScreenShare, screenShareSupportReason, stopScreenShare]);
+  }, [canScreenShare, screenShareSupportReason, stopScreenShare, socket]);
 
   // --- Join Room ---
   const joinRoom = useCallback(
@@ -786,23 +884,28 @@ const useWebRTC = ({ socket, username }) => {
   // Inline cleanup avoids depending on removePeer (whose identity could
   // change and cause the effect to re-run, killing all connections).
   useEffect(() => {
+    const connectionsSnapshot = connectionsRef.current;
+    const remoteStreamsSnapshot = remoteStreamsRef.current;
+    const pendingCandidatesSnapshot = pendingCandidatesRef.current;
+    const peerUsernamesSnapshot = peerUsernamesRef.current;
+    const peerMediaSnapshot = peerMediaRef.current;
+
     return () => {
-      for (const pc of connectionsRef.current.values()) {
+      for (const pc of connectionsSnapshot.values()) {
         pc.onicecandidate = null;
         pc.ontrack = null;
         pc.onconnectionstatechange = null;
         pc.onnegotiationneeded = null;
         pc.close();
       }
-      connectionsRef.current.clear();
-      remoteStreamsRef.current.clear();
-      pendingCandidatesRef.current.clear();
-      peerUsernamesRef.current.clear();
-      peerMediaRef.current.clear();
+      connectionsSnapshot.clear();
+      remoteStreamsSnapshot.clear();
+      pendingCandidatesSnapshot.clear();
+      peerUsernamesSnapshot.clear();
+      peerMediaSnapshot.clear();
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
       screenStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {

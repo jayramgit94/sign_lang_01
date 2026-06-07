@@ -19,6 +19,51 @@ import { Badge, IconButton, Tooltip } from "@mui/material";
 import React from "react";
 import styles from "../../styles/videoComponent.module.css";
 
+const ControlButton = ({
+  label,
+  shortLabel,
+  ariaPressed,
+  activeClass,
+  offClass,
+  disabled,
+  onClick,
+  children,
+  badge,
+  badgeColor = "error",
+}) => (
+  <div className={styles.controlButtonWrap}>
+    <Tooltip title={label}>
+      <span className={disabled ? styles.controlBtnDisabledWrap : undefined}>
+        <IconButton
+          onClick={onClick}
+          disabled={disabled}
+          className={[
+            styles.controlBtn,
+            activeClass ? styles[activeClass] : "",
+            offClass ? styles[offClass] : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          size="large"
+          aria-label={label}
+          aria-pressed={ariaPressed}
+        >
+          {badge != null && badge !== false ? (
+            <Badge badgeContent={badge} color={badgeColor} max={99}>
+              {children}
+            </Badge>
+          ) : (
+            children
+          )}
+        </IconButton>
+      </span>
+    </Tooltip>
+    <span className={styles.controlLabel} aria-hidden="true">
+      {shortLabel || label.split(" ").slice(0, 2).join(" ")}
+    </span>
+  </div>
+);
+
 const ControlBar = ({
   video,
   audio,
@@ -40,119 +85,127 @@ const ControlBar = ({
   onTogglePeople,
   onEndCall,
 }) => {
+  const screenLabel = canScreenShare
+    ? screen
+      ? "Stop sharing screen"
+      : "Share screen"
+    : screenShareSupportReason || "Screen sharing not supported";
+
   return (
-    <div className={styles.controlBar}>
-      <div className={styles.controlGroup}>
-        {/* Video toggle */}
-        <Tooltip title={video ? "Turn off camera" : "Turn on camera"}>
-          <IconButton
-            onClick={onToggleVideo}
-            className={`${styles.controlBtn} ${!video ? styles.controlBtnOff : ""}`}
-            size="large"
+    <footer
+      className={styles.controlBar}
+      role="toolbar"
+      aria-label="Meeting controls"
+    >
+      <div className={styles.controlBarInner}>
+        <div className={styles.controlScrollArea}>
+          <div
+            className={styles.controlGroup}
+            role="group"
+            aria-label="Media controls"
           >
-            {video ? <Videocam /> : <VideocamOff />}
-          </IconButton>
-        </Tooltip>
+            <ControlButton
+              label={video ? "Turn off camera" : "Turn on camera"}
+              shortLabel={video ? "Camera" : "Camera off"}
+              ariaPressed={video}
+              offClass={!video ? "controlBtnOff" : ""}
+              onClick={onToggleVideo}
+            >
+              {video ? <Videocam /> : <VideocamOff />}
+            </ControlButton>
 
-        {/* Audio toggle */}
-        <Tooltip title={audio ? "Mute" : "Unmute"}>
-          <IconButton
-            onClick={onToggleAudio}
-            className={`${styles.controlBtn} ${!audio ? styles.controlBtnOff : ""}`}
-            size="large"
-          >
-            {audio ? <Mic /> : <MicOff />}
-          </IconButton>
-        </Tooltip>
+            <ControlButton
+              label={audio ? "Mute microphone" : "Unmute microphone"}
+              shortLabel={audio ? "Mic" : "Muted"}
+              ariaPressed={!audio}
+              offClass={!audio ? "controlBtnOff" : ""}
+              onClick={onToggleAudio}
+            >
+              {audio ? <Mic /> : <MicOff />}
+            </ControlButton>
 
-        {/* Screen share */}
-        <Tooltip
-          title={
-            canScreenShare
-              ? screen
-                ? "Stop sharing"
-                : "Share screen"
-              : screenShareSupportReason || "Screen sharing not supported"
-          }
-        >
-          <span>
-            <IconButton
-              onClick={onToggleScreen}
+            <ControlButton
+              label={screenLabel}
+              shortLabel="Share"
+              ariaPressed={screen}
+              activeClass={screen ? "controlBtnActive" : ""}
               disabled={!canScreenShare}
-              className={`${styles.controlBtn} ${screen ? styles.controlBtnActive : ""}`}
-              size="large"
+              onClick={onToggleScreen}
             >
               {screen ? <StopScreenShare /> : <ScreenShare />}
-            </IconButton>
-          </span>
-        </Tooltip>
+            </ControlButton>
+          </div>
 
-        {/* Sign language recognition toggle */}
-        <Tooltip
-          title={
-            signLangEnabled
-              ? "Disable sign language recognition"
-              : "Enable sign language recognition"
-          }
-        >
-          <IconButton
-            onClick={onToggleSignLang}
-            className={`${styles.controlBtn} ${signLangEnabled ? styles.controlBtnActive : ""}`}
-            size="large"
-          >
-            <PanTool />
-          </IconButton>
-        </Tooltip>
+          <div className={styles.controlDivider} aria-hidden="true" />
 
-        {/* Captions visibility toggle (CC button) */}
-        <Tooltip title={captionsVisible ? "Hide captions" : "Show captions"}>
-          <IconButton
-            onClick={onToggleCaptions}
-            className={`${styles.controlBtn} ${captionsVisible ? styles.controlBtnActive : ""}`}
-            size="large"
+          <div
+            className={styles.controlGroup}
+            role="group"
+            aria-label="Accessibility and panels"
           >
-            {captionsVisible ? <ClosedCaption /> : <ClosedCaptionDisabled />}
-          </IconButton>
-        </Tooltip>
+            <ControlButton
+              label={
+                signLangEnabled
+                  ? "Disable sign language recognition"
+                  : "Enable sign language recognition"
+              }
+              shortLabel="Sign"
+              ariaPressed={signLangEnabled}
+              activeClass={signLangEnabled ? "controlBtnActive" : ""}
+              onClick={onToggleSignLang}
+            >
+              <PanTool />
+            </ControlButton>
 
-        {/* Chat toggle */}
-        <Tooltip title="Chat">
-          <IconButton
-            onClick={onToggleChat}
-            className={styles.controlBtn}
-            size="large"
-          >
-            <Badge badgeContent={chatOpen ? 0 : newMessages} color="error">
+            <ControlButton
+              label={captionsVisible ? "Hide captions" : "Show captions"}
+              shortLabel="Captions"
+              ariaPressed={captionsVisible}
+              activeClass={captionsVisible ? "controlBtnActive" : ""}
+              onClick={onToggleCaptions}
+            >
+              {captionsVisible ? <ClosedCaption /> : <ClosedCaptionDisabled />}
+            </ControlButton>
+
+            <ControlButton
+              label={chatOpen ? "Close chat" : "Open chat"}
+              shortLabel="Chat"
+              ariaPressed={chatOpen}
+              activeClass={chatOpen ? "controlBtnActive" : ""}
+              onClick={onToggleChat}
+              badge={!chatOpen && newMessages > 0 ? newMessages : null}
+            >
               <Chat />
-            </Badge>
-          </IconButton>
-        </Tooltip>
+            </ControlButton>
 
-        {/* People toggle */}
-        <Tooltip title="People">
-          <IconButton
-            onClick={onTogglePeople}
-            className={`${styles.controlBtn} ${peopleOpen ? styles.controlBtnActive : ""}`}
-            size="large"
-          >
-            <Badge badgeContent={participantCount} color="primary">
+            <ControlButton
+              label={peopleOpen ? "Close people panel" : "Open people panel"}
+              shortLabel="People"
+              ariaPressed={peopleOpen}
+              activeClass={peopleOpen ? "controlBtnActive" : ""}
+              onClick={onTogglePeople}
+              badge={participantCount}
+              badgeColor="primary"
+            >
               <People />
-            </Badge>
-          </IconButton>
-        </Tooltip>
-      </div>
+            </ControlButton>
+          </div>
+        </div>
 
-      {/* End call */}
-      <Tooltip title="Leave call">
-        <IconButton
-          onClick={onEndCall}
-          className={styles.endCallBtn}
-          size="large"
-        >
-          <CallEnd />
-        </IconButton>
-      </Tooltip>
-    </div>
+        <div className={styles.controlLeave}>
+          <Tooltip title="Leave call">
+            <IconButton
+              onClick={onEndCall}
+              className={styles.endCallBtn}
+              size="large"
+              aria-label="Leave call"
+            >
+              <CallEnd />
+            </IconButton>
+          </Tooltip>
+        </div>
+      </div>
+    </footer>
   );
 };
 

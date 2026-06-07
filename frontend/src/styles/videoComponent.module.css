@@ -1,6 +1,7 @@
 .meetVideoContainer {
   position: relative;
   height: 100vh;
+  height: 100dvh;
   background: radial-gradient(circle at top, #1d2432, #0b1220 60%);
   color: #e6e8ee;
   overflow: hidden;
@@ -64,6 +65,131 @@
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+/* Smart grid breakpoints by participant count */
+.gridQuad {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.gridSix {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gridNine {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gridTwelve {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.gridSixteen {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.gridTwentyFive {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.gridLarge {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-content: start;
+  overflow-y: auto;
+  max-height: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+
+.gridGallery {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.gridLarge::-webkit-scrollbar,
+.spotlightStrip::-webkit-scrollbar {
+  width: 6px;
+}
+
+.gridLarge::-webkit-scrollbar-thumb,
+.spotlightStrip::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 999px;
+}
+
+/* Spotlight (pinned participant) layout */
+.gridSpotlight {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) min(280px, 28vw);
+  gap: 12px;
+  height: 100%;
+  align-items: stretch;
+}
+
+.spotlightMain {
+  min-height: 0;
+  height: 100%;
+}
+
+.spotlightMain .videoTile,
+.tileSpotlight {
+  aspect-ratio: auto;
+  height: 100%;
+  min-height: 200px;
+}
+
+.spotlightStrip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  max-height: 100%;
+  min-height: 0;
+  padding-right: 2px;
+}
+
+.tileThumbnail {
+  aspect-ratio: 16 / 9;
+  flex-shrink: 0;
+  min-height: 0;
+  animation: none;
+}
+
+.videoGridWrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  gap: 8px;
+}
+
+.galleryPagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.galleryNavBtn {
+  color: #e2e8f0 !important;
+}
+
+.galleryPageInfo {
+  font-size: 0.82rem;
+  color: rgba(226, 232, 240, 0.85);
+  font-weight: 500;
+}
+
+.galleryPageCount {
+  margin-left: 6px;
+  color: rgba(148, 163, 184, 0.7);
+  font-weight: 400;
+}
+
 .gridWithChat {
   padding-right: 0;
 }
@@ -74,18 +200,98 @@
 
 .videoTile {
   position: relative;
-  border-radius: 18px;
+  border-radius: var(--radius-lg, 18px);
   overflow: hidden;
-  background: #101827;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  background: #0e1524;
+  box-shadow: var(--shadow-md, 0 12px 30px rgba(0, 0, 0, 0.35));
+  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.06));
   aspect-ratio: 16 / 9;
-  animation: popIn 0.35s ease;
+  transition:
+    box-shadow var(--duration-normal, 0.25s) var(--ease-out, ease),
+    transform var(--duration-normal, 0.25s) var(--ease-out, ease),
+    border-color var(--duration-normal, 0.25s) var(--ease-out, ease);
 }
 
-.activeTile {
+.videoTile:focus-within {
   box-shadow:
-    0 0 0 2px rgba(88, 166, 255, 0.8),
+    0 0 0 2px rgba(59, 130, 246, 0.9),
+    0 16px 30px rgba(59, 130, 246, 0.15);
+}
+
+.tilePinned {
+  box-shadow:
+    0 0 0 2px rgba(255, 152, 57, 0.85),
+    0 16px 30px rgba(255, 152, 57, 0.12);
+}
+
+.tileActions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 2;
+}
+
+.videoTile:hover .tileActions,
+.videoTile:focus-within .tileActions {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .tileActions {
+    opacity: 1;
+  }
+}
+
+.pinBtn {
+  background: rgba(10, 15, 25, 0.75) !important;
+  color: #e2e8f0 !important;
+  backdrop-filter: blur(8px);
+}
+
+.pinBtn:hover {
+  background: rgba(59, 130, 246, 0.35) !important;
+}
+
+.pinnedBadge {
+  margin-left: auto;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 152, 57, 0.25);
+  color: #fdba74;
+  flex-shrink: 0;
+}
+
+.nameLabelText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.activeTile,
+.speakingTile {
+  box-shadow:
+    0 0 0 2px rgba(88, 166, 255, 0.85),
     0 16px 30px rgba(88, 166, 255, 0.2);
+}
+
+.speakingBadge {
+  margin-left: auto;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.25);
+  color: #93c5fd;
+  flex-shrink: 0;
 }
 
 .videoTileVideo {
@@ -345,7 +551,18 @@
 .emptyState {
   text-align: center;
   color: rgba(226, 232, 240, 0.6);
-  padding-top: 40px;
+  padding: 32px 16px;
+  list-style: none;
+}
+
+.emptyState p:first-child {
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.75);
+  margin-bottom: 4px;
+}
+
+.emptyState p:last-child {
+  font-size: 0.82rem;
 }
 
 .typingIndicator {
@@ -404,17 +621,68 @@
 
 .controlBar {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 12px 16px 18px;
-  background: rgba(9, 13, 22, 0.7);
-  backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(920px, calc(100vw - 20px));
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  padding: 8px 10px;
+  background: var(--color-bg-glass-strong, rgba(12, 18, 32, 0.92));
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  border: 1px solid var(--color-border-default, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-pill, 999px);
+  box-shadow: var(--shadow-float, 0 24px 64px rgba(0, 0, 0, 0.55));
+  z-index: 12;
+}
+
+.controlBarInner {
   display: flex;
-  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.controlScrollArea {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  justify-content: center;
+  padding-bottom: 2px;
+}
+
+.controlScrollArea::-webkit-scrollbar {
+  display: none;
+}
+
+.controlDivider {
+  width: 1px;
+  height: 36px;
+  background: rgba(148, 163, 184, 0.2);
+  flex-shrink: 0;
+  align-self: center;
+  margin-bottom: 4px;
+}
+
+.controlLeave {
+  flex-shrink: 0;
+  display: flex;
   align-items: center;
-  z-index: 5;
+}
+
+.controlGroupEnd {
+  display: flex;
+  align-items: center;
+}
+
+.controlBtnDisabledWrap {
+  display: inline-flex;
 }
 
 .controlGroup {
@@ -452,21 +720,33 @@
 }
 
 .controlLabel {
-  font-size: 0.75rem;
-  color: rgba(226, 232, 240, 0.7);
+  font-size: 0.68rem;
+  color: rgba(226, 232, 240, 0.55);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  max-width: 56px;
+  text-align: center;
+  line-height: 1.2;
 }
 
 .captionOverlay {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 120px;
+  left: 16px;
+  right: 16px;
+  bottom: calc(var(--meet-controlbar-height) + 8px);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
   pointer-events: none;
   z-index: 4;
+  max-height: 30vh;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.captionOverlay::-webkit-scrollbar {
+  display: none;
 }
 
 .captionBubble {
@@ -506,14 +786,31 @@
 
 .lobbyContainer {
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 18px;
   padding: 24px;
-  background: radial-gradient(circle at top, #111827, #0b1220 60%);
-  color: #e2e8f0;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 0%, rgba(99, 102, 241, 0.14), transparent),
+    linear-gradient(180deg, #0a101c 0%, #050810 100%);
+  color: var(--color-text-primary, #e2e8f0);
+}
+
+.lobbyCard {
+  background: var(--color-bg-glass, rgba(15, 23, 42, 0.65));
+  border: 1px solid var(--color-border-default, rgba(148, 163, 184, 0.2));
+  border-radius: var(--radius-xl, 24px);
+  padding: 36px;
+  width: min(480px, 92vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: var(--shadow-lg, 0 20px 50px rgba(0, 0, 0, 0.3));
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
 }
 
 .lobbyTitle {
@@ -652,24 +949,346 @@
 .meetContainer {
   position: relative;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: radial-gradient(circle at top, #1d2432, #0b1220 60%);
-  color: #e6e8ee;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.12), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(59, 130, 246, 0.06), transparent),
+    linear-gradient(180deg, #0a101c 0%, #050810 100%);
+  color: var(--color-text-primary, #e6e8ee);
   overflow: hidden;
+  --meet-topbar-height: 52px;
+  --meet-controlbar-height: 96px;
+}
+
+.meetContainer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    rgba(148, 163, 184, 0.04) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+  pointer-events: none;
+  opacity: 0.5;
+  mask-image: linear-gradient(180deg, black 0%, transparent 85%);
+}
+
+/* Meeting top bar */
+.meetingTopBar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  background: var(--color-bg-overlay, rgba(9, 13, 22, 0.75));
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border-bottom: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.06));
+  z-index: 6;
+  flex-shrink: 0;
+}
+
+.meetingTopBarLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.meetingTopBarCenter {
+  display: flex;
+  justify-content: center;
+}
+
+.meetingTopBarRight {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.liveBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.callDuration {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.75);
+  font-variant-numeric: tabular-nums;
+}
+
+.meetingCodeChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #e2e8f0;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.meetingCodeChip:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.meetingCodeChip:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.meetingCodeLabel {
+  font-size: 0.72rem;
+  color: rgba(148, 163, 184, 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.meetingCodeValue {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fdba74;
+}
+
+.participantBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #bfdbfe;
+}
+
+.signLangBadge {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(255, 152, 57, 0.2);
+  border: 1px solid rgba(255, 152, 57, 0.35);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fdba74;
+}
+
+.layoutToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-pill, 999px);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.layoutBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-pill, 999px);
+  background: transparent;
+  color: rgba(226, 232, 240, 0.65);
+  cursor: pointer;
+  transition:
+    background var(--duration-fast, 0.2s) ease,
+    color var(--duration-fast, 0.2s) ease;
+}
+
+.layoutBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+}
+
+.layoutBtn:focus-visible {
+  outline: 2px solid var(--color-brand, #6366f1);
+  outline-offset: 2px;
+}
+
+.layoutBtnActive {
+  background: rgba(99, 102, 241, 0.25);
+  color: #c7d2fe;
+}
+
+.peopleStatus {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Local PiP self-view */
+.localPip {
+  position: fixed;
+  z-index: 11;
+  width: 160px;
+  border-radius: var(--radius-md, 14px);
+  overflow: hidden;
+  background: var(--color-bg-glass-strong, rgba(12, 18, 32, 0.95));
+  border: 1px solid var(--color-border-default, rgba(255, 255, 255, 0.12));
+  box-shadow: var(--shadow-float, 0 16px 48px rgba(0, 0, 0, 0.5));
+  touch-action: none;
+  cursor: grab;
+}
+
+.localPip:active {
+  cursor: grabbing;
+}
+
+.localPipHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 4px 10px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.localPipLabel {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(226, 232, 240, 0.75);
+}
+
+.localPipClose {
+  color: rgba(226, 232, 240, 0.7) !important;
+  padding: 4px !important;
+}
+
+.localPipBody {
+  aspect-ratio: 16 / 10;
+  background: #0e1524;
+  position: relative;
+}
+
+.localPipVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.localPipAvatar {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  background: linear-gradient(180deg, #1a2332, #0e1524);
+}
+
+.localPipFooter {
+  padding: 2px 8px 4px;
+  min-height: 18px;
+}
+
+.localPipMuted {
+  font-size: 0.65rem;
+  color: #f87171;
+  font-weight: 600;
+}
+
+/* Sign language loading overlay */
+.signLangOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 8, 16, 0.82);
+  backdrop-filter: blur(8px);
+}
+
+.signLangOverlayCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 36px 40px;
+  max-width: 420px;
+  border-radius: var(--radius-xl, 24px);
+  background: var(--color-bg-glass-strong, rgba(12, 18, 32, 0.95));
+  border: 1px solid var(--color-border-default, rgba(148, 163, 184, 0.2));
+  box-shadow: var(--shadow-lg);
+}
+
+.serviceBanner {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 184, 77, 0.95);
+  color: #1f2937;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  z-index: 5;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.performanceBanner {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  padding: 10px 14px;
+  background: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  color: #bfdbfe;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  z-index: 4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.videoArea:has(.serviceBanner) .performanceBanner {
+  top: 56px;
 }
 
 /* Video area */
 .videoArea {
   flex: 1;
   display: flex;
-  padding: 24px 16px 110px;
+  flex-direction: column;
+  padding: 12px 16px var(--meet-controlbar-height);
   position: relative;
   overflow: hidden;
+  min-height: 0;
 }
 
 .videoAreaWithChat {
-  padding-right: 376px;
+  padding-right: 396px;
 }
 
 @media (max-width: 1100px) {
@@ -728,7 +1347,14 @@
   color: #e2e8f0 !important;
   transition:
     transform 0.2s ease,
-    background 0.2s ease;
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.controlBtn:focus-visible {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
 }
 
 .controlBtn:hover {
@@ -765,13 +1391,15 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(8px);
-  font-size: 0.95rem;
-  color: #e2e8f0;
+  padding: 10px 18px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--color-bg-glass-strong, rgba(12, 18, 32, 0.92));
+  backdrop-filter: blur(12px) saturate(1.2);
+  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
+  font-size: var(--text-base, 0.95rem);
+  color: var(--color-text-primary, #e2e8f0);
   margin-bottom: 4px;
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.35));
 }
 
 .captionLine strong {
@@ -782,15 +1410,17 @@
 .chatPanel {
   position: fixed;
   right: 0;
-  top: 0;
-  bottom: 96px;
-  width: 360px;
-  background: #101827;
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  top: var(--meet-topbar-height);
+  bottom: var(--meet-controlbar-height);
+  width: 380px;
+  background: var(--color-bg-glass-strong, rgba(12, 18, 32, 0.94));
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border-left: 1px solid var(--color-border-default, rgba(255, 255, 255, 0.08));
   display: flex;
   flex-direction: column;
   z-index: 10;
-  animation: slideIn 0.2s ease;
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.4);
 }
 
 @keyframes slideIn {
@@ -832,7 +1462,12 @@
   border-radius: 999px;
 }
 
-/* People panel */
+.endCallBtn:focus-visible {
+  outline: 2px solid #fff !important;
+  outline-offset: 2px;
+}
+
+/* People panel list */
 .peopleList {
   flex: 1;
   padding: 12px 16px;
@@ -840,6 +1475,13 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  list-style: none;
+  margin: 0;
+}
+
+.peopleItemYou {
+  background: rgba(255, 152, 57, 0.08);
+  border: 1px solid rgba(255, 152, 57, 0.2);
 }
 
 .peopleItem {
@@ -940,20 +1582,7 @@
   gap: 6px;
 }
 
-/* Lobby */
-.lobbyCard {
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 24px;
-  padding: 32px;
-  width: min(480px, 90vw);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(10px);
-}
-
+/* Lobby video preview */
 .lobbyVideo {
   width: 100%;
   height: 100%;
@@ -1020,6 +1649,7 @@
   .chatPanel {
     width: 100%;
     border-left: none;
+    top: var(--meet-topbar-height);
   }
 
   .videoAreaWithChat {
@@ -1031,11 +1661,53 @@
   }
 
   .controlBar {
-    padding: 10px 12px 14px;
+    padding: 8px 10px calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .controlDivider {
+    height: 28px;
   }
 
   .controlGroup {
-    gap: 8px;
+    gap: 6px;
+  }
+
+  .controlLabel {
+    display: none;
+  }
+
+  .gridSpotlight {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+  }
+
+  .spotlightStrip {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: 120px;
+  }
+
+  .tileThumbnail {
+    width: 160px;
+  }
+
+  .meetingTopBar {
+    grid-template-columns: auto 1fr auto;
+    padding: 8px 12px;
+  }
+
+  .layoutToggle {
+    display: none;
+  }
+
+  .meetContainer {
+    --meet-topbar-height: 48px;
+    --meet-controlbar-height: 80px;
+  }
+
+  .callDuration {
+    display: none;
   }
 
   .controlBtn {
@@ -1048,57 +1720,46 @@
     height: 48px !important;
   }
 
-  .videoArea {
-    padding: 12px 8px 100px;
-  }
-
-  .captionOverlay {
-    bottom: 100px;
-  }
-
   .shortcutGuide {
     right: 8px;
     left: 8px;
     width: auto;
-    bottom: 88px;
+    bottom: calc(var(--meet-controlbar-height) + 8px);
   }
 }
 
 @media (max-width: 600px) {
   .meetContainer {
     padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  .videoArea {
-    padding: 10px 6px 116px;
+    --meet-controlbar-height: 88px;
   }
 
   .controlBar {
-    padding: 8px 8px calc(10px + env(safe-area-inset-bottom));
+    max-width: calc(100vw - 12px);
+    border-radius: 20px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .videoArea {
+    padding: 8px 6px var(--meet-controlbar-height);
+  }
+
+  .controlBarInner {
     gap: 8px;
-    justify-content: center;
   }
 
-  .controlGroup {
-    width: 100%;
-    gap: 6px;
-    overflow-x: auto;
+  .controlScrollArea {
     justify-content: flex-start;
-    scrollbar-width: none;
-  }
-
-  .controlGroup::-webkit-scrollbar {
-    display: none;
   }
 
   .controlBtn {
-    width: 40px !important;
-    height: 40px !important;
+    width: 44px !important;
+    height: 44px !important;
   }
 
   .endCallBtn {
-    width: 44px !important;
-    height: 44px !important;
+    width: 48px !important;
+    height: 48px !important;
   }
 
   .videoTile {
@@ -1132,5 +1793,55 @@
 
   .lobbyPreview {
     height: 200px;
+  }
+
+  .shortcutGuide {
+    bottom: calc(var(--meet-controlbar-height) + 8px);
+  }
+}
+
+/* Ultrawide / large desktop */
+@media (min-width: 1600px) {
+  .videoAreaWithChat {
+    padding-right: 400px;
+  }
+
+  .chatPanel {
+    width: 380px;
+  }
+
+  .gridSingle .videoTile {
+    max-width: 1200px;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .videoTile,
+  .chatPanel,
+  .controlBtn,
+  .endCallBtn {
+    animation: none;
+    transition: none;
+  }
+
+  .controlBtn:hover,
+  .endCallBtn:hover {
+    transform: none;
+  }
+}
+
+/* High contrast */
+@media (prefers-contrast: more) {
+  .videoTile {
+    border: 2px solid rgba(255, 255, 255, 0.5);
+  }
+
+  .controlBtn {
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  }
+
+  .nameLabel {
+    background: rgba(0, 0, 0, 0.85);
   }
 }

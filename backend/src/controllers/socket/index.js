@@ -4,6 +4,7 @@
 import { Server } from "socket.io";
 import { corsOptions } from "../../config/cors.js";
 import { socketAuth } from "../../middleware/auth.js";
+import { getClientIpFromSocket } from "../../utils/clientIp.js";
 import roomService from "../../services/room.service.js";
 import { registerChatHandlers } from "./chatHandler.js";
 import { registerRoomHandlers } from "./roomHandler.js";
@@ -37,8 +38,7 @@ export const initializeSocket = (server) => {
 
   // Rate limiting at socket level
   io.use((socket, next) => {
-    const clientIp =
-      socket.handshake.headers["x-forwarded-for"] || socket.handshake.address;
+    const clientIp = getClientIpFromSocket(socket);
 
     if (!rateLimitMap.has(clientIp)) {
       rateLimitMap.set(clientIp, { count: 0, resetAt: Date.now() + 60000 });
@@ -90,6 +90,22 @@ export const initializeSocket = (server) => {
 
   return io;
 };
+
+/**
+ * Gracefully close Socket.IO and clear connection rate-limit state.
+ */
+export const shutdownSocket = () =>
+  new Promise((resolve) => {
+    if (!io) {
+      rateLimitMap.clear();
+      return resolve();
+    }
+    io.close(() => {
+      io = null;
+      rateLimitMap.clear();
+      resolve();
+    });
+  });
 
 /**
  * Handle socket disconnect — clean up room state, notify peers.

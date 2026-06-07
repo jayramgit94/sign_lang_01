@@ -32,7 +32,8 @@ import authRoutes from "./routes/auth.routes.js";
 import meetingRoutes from "./routes/meeting.routes.js";
 
 // Socket
-import { initializeSocket } from "./controllers/socket/index.js";
+import { initializeSocket, shutdownSocket } from "./controllers/socket/index.js";
+import roomService from "./services/room.service.js";
 
 // ─── Express App ─────────────────────────────────────────────────
 const app = express();
@@ -79,12 +80,18 @@ app.use("/api/v1/meetings", meetingRoutes);
 // ─── Health Check ────────────────────────────────────────────────
 app.get("/health", (req, res) => {
   const dbState = getDBStatus();
+  const roomStats = roomService.getStats();
   res.json({
     status: "ok",
     database: dbState,
     environment: config.isProd ? "production" : "development",
     timestamp: new Date().toISOString(),
     uptime: Math.floor(process.uptime()),
+    rooms: roomStats,
+    limits: {
+      maxParticipants: config.room.maxParticipants,
+      meshRecommendedMax: config.room.meshRecommendedMax,
+    },
   });
 });
 
@@ -115,6 +122,16 @@ start();
 // ─── Graceful Shutdown ───────────────────────────────────────────
 const shutdown = async (signal) => {
   console.log(`[Server] ${signal} received. Shutting down...`);
+
+  try {
+    await shutdownSocket();
+    console.log("[Server] Socket.IO closed.");
+  } catch (err) {
+    console.error("[Server] Socket shutdown error:", err.message);
+  }
+
+  roomService.destroy();
+  console.log("[Server] Room state cleared.");
 
   server.close(() => {
     console.log("[Server] HTTP server closed.");

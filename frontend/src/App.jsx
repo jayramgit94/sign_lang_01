@@ -55,7 +55,7 @@ function App() {
       <SnackbarProvider
         maxSnack={3}
         autoHideDuration={3000}
-        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Router>
           <AuthProvider>

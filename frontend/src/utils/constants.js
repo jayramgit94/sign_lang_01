@@ -31,6 +31,23 @@ export const MEDIA_CONSTRAINTS = {
   },
 };
 
+export const ADAPTIVE_VIDEO_PROFILES = {
+  high: { width: 1280, height: 720, fps: 30 },
+  medium: { width: 960, height: 540, fps: 24 },
+  low: { width: 640, height: 360, fps: 15 },
+};
+
+export const ADAPTIVE_VIDEO_THRESHOLDS = {
+  medium: { rttMs: 200, lossPct: 4 },
+  low: { rttMs: 350, lossPct: 8 },
+};
+
+export const ADAPTIVE_BITRATE_FACTORS = {
+  high: 1,
+  medium: 0.75,
+  low: 0.5,
+};
+
 export const SCREEN_CONSTRAINTS = {
   video: {
     cursor: "always",
@@ -57,6 +74,9 @@ export const SIGN_LANG_SERVER_URL =
   (import.meta.env.DEV ? "http://localhost:5000" : "");
 
 export const MAX_CHAT_MESSAGE_LENGTH = 2000;
+
+/** Mesh WebRTC performs best below this; larger calls may degrade quality. */
+export const MESH_RECOMMENDED_MAX = 12;
 
 export const CONNECTION_QUALITY = {
   EXCELLENT: "excellent",

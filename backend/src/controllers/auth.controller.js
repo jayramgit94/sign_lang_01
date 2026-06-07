@@ -18,6 +18,7 @@ import {
 } from "../services/email.service.js";
 import config from "../config/index.js";
 import crypto from "crypto";
+import { getClientIpFromRequest } from "../utils/clientIp.js";
 
 /**
  * POST /api/v1/auth/register
@@ -34,7 +35,7 @@ export const register = async (req, res, next) => {
         username,
         action: "register",
         resource: "user",
-        ip: getClientIp(req),
+        ip: getClientIpFromRequest(req),
         userAgent: req.headers["user-agent"],
         success: false,
         details: "Username already taken",
@@ -53,7 +54,7 @@ export const register = async (req, res, next) => {
           username,
           action: "register",
           resource: "user",
-          ip: getClientIp(req),
+          ip: getClientIpFromRequest(req),
           userAgent: req.headers["user-agent"],
           success: false,
           details: "Email already registered",
@@ -92,7 +93,7 @@ export const register = async (req, res, next) => {
       username: user.username,
       action: "register",
       resource: "user",
-      ip: getClientIp(req),
+      ip: getClientIpFromRequest(req),
       userAgent: req.headers["user-agent"],
       success: true,
       details: "User registration successful",
@@ -118,7 +119,7 @@ export const register = async (req, res, next) => {
 export const login = async (req, res, next) => {
   try {
     const { username, password } = req.body;
-    const clientIp = getClientIp(req);
+    const clientIp = getClientIpFromRequest(req);
 
     const user = await User.findOne({ username });
     if (!user) {
@@ -335,7 +336,7 @@ export const verifyEmail = async (req, res, next) => {
       username: user.username,
       action: "email_verification",
       resource: "user",
-      ip: getClientIp(req),
+      ip: getClientIpFromRequest(req),
       userAgent: req.headers["user-agent"],
       success: true,
       details: "Email verified successfully",
@@ -389,7 +390,7 @@ export const forgotPassword = async (req, res, next) => {
       username: user.username,
       action: "password_reset_request",
       resource: "user",
-      ip: getClientIp(req),
+      ip: getClientIpFromRequest(req),
       userAgent: req.headers["user-agent"],
       success: true,
       details: "Password reset token generated",
@@ -454,7 +455,7 @@ export const resetPassword = async (req, res, next) => {
       username: user.username,
       action: "password_reset",
       resource: "user",
-      ip: getClientIp(req),
+      ip: getClientIpFromRequest(req),
       userAgent: req.headers["user-agent"],
       success: true,
       details: "Password reset successfully",
@@ -490,7 +491,7 @@ export const getAuditLogsAdmin = async (req, res, next) => {
       username: currentUser.username,
       action: "view_audit_logs",
       resource: "admin",
-      ip: getClientIp(req),
+      ip: getClientIpFromRequest(req),
       userAgent: req.headers["user-agent"],
       success: true,
       details: `Fetched ${logs.length} audit logs`,
@@ -504,15 +505,3 @@ export const getAuditLogsAdmin = async (req, res, next) => {
     next(err);
   }
 };
-
-/**
- * Helper function to get client IP
- */
-function getClientIp(req) {
-  return (
-    req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
-    req.headers["x-real-ip"] ||
-    req.socket?.remoteAddress ||
-    "unknown"
-  );
-}

@@ -160,6 +160,17 @@ import time as _time
 _conn_timestamps = defaultdict(list)
 MAX_CONNECTIONS_PER_MINUTE = 20
 MAX_TOTAL_CONNECTIONS = 100
+_landmark_timestamps = defaultdict(list)
+MAX_LANDMARKS_PER_10S = 120
+LANDMARK_WINDOW_SECONDS = 10
+LANDMARK_MIN_INTERVAL_MS = 300
+METRICS_LOG_INTERVAL_SECONDS = 60
+_metrics = {
+    "landmark_allowed": 0,
+    "landmark_blocked": 0,
+    "landmark_errors": 0,
+}
+_last_metrics_log = _time.time()
 
 
 def _check_rate_limit(ip):
@@ -171,6 +182,46 @@ def _check_rate_limit(ip):
         return False
     _conn_timestamps[ip].append(now)
     return True
+
+
+def _check_landmark_rate_limit(sid):
+    now = _time.time()
+    _landmark_timestamps[sid] = [
+        t for t in _landmark_timestamps[sid] if now - t < LANDMARK_WINDOW_SECONDS
+    ]
+    if len(_landmark_timestamps[sid]) >= MAX_LANDMARKS_PER_10S:
+        return False
+    _landmark_timestamps[sid].append(now)
+    return True
+
+
+def _get_landmark_retry_after_ms(sid):
+    timestamps = _landmark_timestamps.get(sid, [])
+    if not timestamps:
+        return LANDMARK_MIN_INTERVAL_MS
+    oldest = timestamps[0]
+    retry_after = max(
+        0, int((oldest + LANDMARK_WINDOW_SECONDS - _time.time()) * 1000)
+    )
+    return max(LANDMARK_MIN_INTERVAL_MS, retry_after)
+
+
+def _log_metrics_if_due():
+    global _last_metrics_log
+    now = _time.time()
+    if now - _last_metrics_log < METRICS_LOG_INTERVAL_SECONDS:
+        return
+    _last_metrics_log = now
+    print(
+        "[Metrics] landmarks allowed={allowed} blocked={blocked} errors={errors}".format(
+            allowed=_metrics["landmark_allowed"],
+            blocked=_metrics["landmark_blocked"],
+            errors=_metrics["landmark_errors"],
+        )
+    )
+    _metrics["landmark_allowed"] = 0
+    _metrics["landmark_blocked"] = 0
+    _metrics["landmark_errors"] = 0
 
 
 # ============ CONNECTED USERS TRACKING ============
@@ -216,6 +267,23 @@ def api_classes():
     """Return signs and class mapping for dynamic frontend."""
     signs = CONFIG.get("signs", {})
     return {"signs": signs, "classes": classes_map}
+
+
+@app.route("/api/metrics")
+def api_metrics():
+    """Return basic server metrics for monitoring."""
+    return {
+        "connectedUsers": len(connected_users),
+        "landmarksAllowed": _metrics["landmark_allowed"],
+        "landmarksBlocked": _metrics["landmark_blocked"],
+        "landmarkErrors": _metrics["landmark_errors"],
+        "landmarkRateLimit": {
+            "maxPerWindow": MAX_LANDMARKS_PER_10S,
+            "windowSeconds": LANDMARK_WINDOW_SECONDS,
+            "minIntervalMs": LANDMARK_MIN_INTERVAL_MS,
+            "activeSids": len(_landmark_timestamps),
+        },
+    }
 
 
 @app.route("/<path:path>")
@@ -264,6 +332,7 @@ def handle_disconnect():
     sid = request.sid
     user = connected_users.pop(sid, None)
     builder = sentence_builders.pop(sid, None)
+    _landmark_timestamps.pop(sid, None)
     if builder:
         builder.flush()  # Process any remaining words before cleanup
     name = user["username"] if user else "Unknown"
@@ -309,15 +378,28 @@ def handle_landmark(data):
       8. Send prediction back to client
     """
     try:
+        sid = request.sid
+        if not _check_landmark_rate_limit(sid):
+            _metrics["landmark_blocked"] += 1
+            emit("prediction", {"error": "Rate limit exceeded. Slow down."})
+            emit("slowdown", {"minIntervalMs": _get_landmark_retry_after_ms(sid)})
+            return
+
         # Check if model is loaded
         if session is None:
+            _metrics["landmark_errors"] += 1
             emit("prediction", {"error": "Model not loaded on server"})
             return
 
         # Get landmark vector from client
         vec = data.get("vector")
-        if vec is None:
+        if vec is None or not isinstance(vec, (list, tuple)):
+            _metrics["landmark_errors"] += 1
             emit("prediction", {"error": "No vector provided"})
+            return
+        if expected_dim and len(vec) > expected_dim * 2:
+            _metrics["landmark_errors"] += 1
+            emit("prediction", {"error": "Vector size too large"})
             return
 
         # Normalize vector if not already normalized
@@ -330,6 +412,7 @@ def handle_landmark(data):
 
         # Validate input dimension
         if x.shape[1] != expected_dim:
+            _metrics["landmark_errors"] += 1
             emit(
                 "prediction",
                 {
@@ -358,13 +441,16 @@ def handle_landmark(data):
 
         # Send prediction back to client
         emit("prediction", {"label": label, "score": score})
+        _metrics["landmark_allowed"] += 1
+        _log_metrics_if_due()
 
         # Feed into sentence builder for grammar correction
-        sid = request.sid
         builder = sentence_builders.get(sid)
         if builder:
             builder.add_word(label, score)
     except Exception as e:
+        _metrics["landmark_errors"] += 1
+        _log_metrics_if_due()
         # Send error message if something fails
         emit("prediction", {"error": str(e)})
 

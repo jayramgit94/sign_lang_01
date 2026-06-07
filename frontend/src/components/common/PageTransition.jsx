@@ -1,26 +1,17 @@
-import { motion } from "framer-motion";
-
-const pageVariants = {
-  initial: { opacity: 0, y: 24 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -16 },
-};
-
-const pageTransition = {
-  type: "tween",
-  ease: [0.25, 0.46, 0.45, 0.94],
-  duration: 0.45,
-};
+import { motion, useReducedMotion } from "framer-motion";
+import { pageTransition, pageVariants } from "../../utils/motion";
 
 export default function PageTransition({ children }) {
+  const reduced = useReducedMotion();
+
   return (
     <motion.div
       variants={pageVariants}
-      initial="initial"
+      initial={reduced ? false : "initial"}
       animate="animate"
-      exit="exit"
-      transition={pageTransition}
-      style={{ width: "100%", minHeight: "100vh" }}
+      exit={reduced ? undefined : "exit"}
+      transition={pageTransition(reduced)}
+      style={{ width: "100%", minHeight: "100dvh" }}
     >
       {children}
     </motion.div>

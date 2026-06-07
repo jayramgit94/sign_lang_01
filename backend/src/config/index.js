@@ -41,10 +41,13 @@ const config = {
 
   // ── Room Defaults ──
   room: {
-    maxParticipants: parseInt(process.env.ROOM_MAX_PARTICIPANTS, 10) || 12,
+    /** Hard cap enforced by room.service (set via ROOM_MAX_PARTICIPANTS). */
+    maxParticipants: parseInt(process.env.ROOM_MAX_PARTICIPANTS, 10) || 50,
+    /** Mesh WebRTC performs best below this; SFU recommended beyond. */
+    meshRecommendedMax: parseInt(process.env.ROOM_MESH_RECOMMENDED_MAX, 10) || 12,
     maxMessageHistory: 100,
-    emptyRoomTTL: 5 * 60 * 1000, // 5 min before empty room cleanup
-    codeLength: 8,
+    emptyRoomTTL: 5 * 60 * 1000,
+    codeLength: 6,
   },
 
   // ── Bcrypt ──

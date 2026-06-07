@@ -12,7 +12,9 @@
     "prod": "node src/app.js",
     "check:env": "node scripts/env-hygiene-check.js",
     "check:env:prod": "node scripts/env-hygiene-check.js --production",
-    "test:security": "node scripts/security-smoke-test.js"
+    "test:security": "node scripts/security-smoke-test.js",
+    "test:socketschema": "node scripts/socket-schema-smoke-test.js",
+    "test:clientip": "node scripts/client-ip-smoke-test.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

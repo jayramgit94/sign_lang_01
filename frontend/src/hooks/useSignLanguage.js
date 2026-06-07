@@ -16,6 +16,14 @@ import { SIGN_LANG_SERVER_URL } from "../utils/constants";
 
 /** Minimum interval between landmark sends (ms) — ~6-7 fps */
 const SEND_INTERVAL_MS = 150;
+/** Maximum interval between landmark sends when idle (ms) */
+const MAX_SEND_INTERVAL_MS = 250;
+/** Force a full send at least this often (ms) */
+const MAX_FULL_SEND_MS = 1500;
+/** Mean absolute delta threshold to consider motion significant */
+const DELTA_THRESHOLD = 0.003;
+/** Minimum slowdown interval enforced by server */
+const SLOWDOWN_MIN_INTERVAL_MS = 300;
 /** Minimum prediction confidence to display */
 const CONFIDENCE_THRESHOLD = 0.6;
 
@@ -38,6 +46,8 @@ const useSignLanguage = ({ localStream, socket, username }) => {
   const [captionScore, setCaptionScore] = useState(0);
   const [correctedSentence, setCorrectedSentence] = useState("");
   const [remoteCaptions, setRemoteCaptions] = useState([]); // [{ username, text, score, timestamp }]
+  const [signServerHealth, setSignServerHealth] = useState("unknown");
+  const [signServerMetrics, setSignServerMetrics] = useState(null);
 
   const signSocketRef = useRef(null);
   const holisticRef = useRef(null);
@@ -45,12 +55,17 @@ const useSignLanguage = ({ localStream, socket, username }) => {
   const videoElRef = useRef(null);
   const captionTimeoutRef = useRef(null);
   const lastSentTimeRef = useRef(0);
+  const lastFullSentTimeRef = useRef(0);
+  const lastVectorRef = useRef(null);
+  const sendIntervalRef = useRef(SEND_INTERVAL_MS);
   // Per-user clear timers for remote captions
   const remoteCaptionTimersRef = useRef(new Map()); // username → timeoutId
+  const metricsIntervalRef = useRef(null);
 
   // Listen for remote captions from room peers (supports multiple signers)
   useEffect(() => {
     if (!socket) return;
+    const timersRef = remoteCaptionTimersRef.current;
 
     const handleCaption = ({
       username: sender,
@@ -83,10 +98,10 @@ const useSignLanguage = ({ localStream, socket, username }) => {
     return () => {
       socket.off("caption", handleCaption);
       // Clear all timers on unmount
-      for (const timer of remoteCaptionTimersRef.current.values()) {
+      for (const timer of timersRef.values()) {
         clearTimeout(timer);
       }
-      remoteCaptionTimersRef.current.clear();
+      timersRef.clear();
     };
   }, [socket]);
 
@@ -108,8 +123,17 @@ const useSignLanguage = ({ localStream, socket, username }) => {
 
     signSocket.on("connect", () => {
       console.log("[SignLang] Connected to inference server.");
+      setSignServerHealth("ok");
       // Register with sign server so it creates a SentenceBuilder for this user
       signSocket.emit("user_join", { username: username || "Guest" });
+    });
+
+    signSocket.on("slowdown", (data) => {
+      const minIntervalMs = Math.max(
+        SLOWDOWN_MIN_INTERVAL_MS,
+        Number(data?.minIntervalMs) || SLOWDOWN_MIN_INTERVAL_MS,
+      );
+      sendIntervalRef.current = Math.max(sendIntervalRef.current, minIntervalMs);
     });
 
     // Server responds with { label, score } (or { error })
@@ -140,6 +164,7 @@ const useSignLanguage = ({ localStream, socket, username }) => {
 
     signSocket.on("connect_error", (err) => {
       console.warn("[SignLang] Connection error:", err.message);
+      setSignServerHealth("degraded");
     });
 
     // Corrected sentence from Grok API (after pause detection)
@@ -161,6 +186,26 @@ const useSignLanguage = ({ localStream, socket, username }) => {
     signSocketRef.current = signSocket;
     return signSocket;
   }, [socket, username]);
+
+  const fetchSignServerMetrics = useCallback(async () => {
+    if (!SIGN_LANG_SERVER_URL) return;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const res = await fetch(`${SIGN_LANG_SERVER_URL}/api/metrics`, {
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error("metrics_fetch_failed");
+      const data = await res.json();
+      setSignServerMetrics(data);
+      setSignServerHealth("ok");
+    } catch {
+      setSignServerHealth("degraded");
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }, []);
 
   // Initialize MediaPipe Holistic and start processing
   const startRecognition = useCallback(async () => {
@@ -221,7 +266,7 @@ const useSignLanguage = ({ localStream, socket, username }) => {
 
         // Throttle: skip if too soon since last send
         const now = performance.now();
-        if (now - lastSentTimeRef.current < SEND_INTERVAL_MS) return;
+        if (now - lastSentTimeRef.current < sendIntervalRef.current) return;
 
         // Need at least one hand to make a prediction
         const hasLeftHand = !!results.leftHandLandmarks;
@@ -257,13 +302,38 @@ const useSignLanguage = ({ localStream, socket, username }) => {
         // Concatenate: hand(126) + face(1404) = 1530
         const fullVector = handVector.concat(faceVector).slice(0, 1530);
 
-        // Send as "landmark" (singular) — matches server event name
-        signSocketRef.current.emit("landmark", {
-          vector: fullVector,
-          normalized: false,
-        });
+        const lastVector = lastVectorRef.current;
+        let meanDelta = 1;
+        if (lastVector && lastVector.length === fullVector.length) {
+          let sumDelta = 0;
+          for (let i = 0; i < fullVector.length; i += 1) {
+            sumDelta += Math.abs(fullVector[i] - lastVector[i]);
+          }
+          meanDelta = sumDelta / fullVector.length;
+        }
 
-        lastSentTimeRef.current = now;
+        const shouldForceSend =
+          now - lastFullSentTimeRef.current >= MAX_FULL_SEND_MS;
+        const shouldSend = meanDelta >= DELTA_THRESHOLD || shouldForceSend;
+
+        if (shouldSend) {
+          // Send as "landmark" (singular) — matches server event name
+          signSocketRef.current.emit("landmark", {
+            vector: fullVector,
+            normalized: false,
+          });
+
+          lastVectorRef.current = fullVector;
+          lastSentTimeRef.current = now;
+          lastFullSentTimeRef.current = now;
+          sendIntervalRef.current = SEND_INTERVAL_MS;
+        } else {
+          lastSentTimeRef.current = now;
+          sendIntervalRef.current = Math.min(
+            MAX_SEND_INTERVAL_MS,
+            sendIntervalRef.current + 25,
+          );
+        }
       });
 
       holisticRef.current = holistic;
@@ -280,6 +350,13 @@ const useSignLanguage = ({ localStream, socket, username }) => {
       camera.start();
       cameraRef.current = camera;
 
+      if (!metricsIntervalRef.current) {
+        void fetchSignServerMetrics();
+        metricsIntervalRef.current = setInterval(() => {
+          void fetchSignServerMetrics();
+        }, 15000);
+      }
+
   setIsLoading(false);
 
       setIsEnabled(true);
@@ -289,7 +366,7 @@ const useSignLanguage = ({ localStream, socket, username }) => {
         setLoadingError(err.message || "Failed to start sign language recognition");
       signSocket.disconnect();
     }
-  }, [localStream, connectSignServer]);
+  }, [localStream, connectSignServer, fetchSignServerMetrics]);
 
   // Stop recognition
   const stopRecognition = useCallback(() => {
@@ -308,10 +385,20 @@ const useSignLanguage = ({ localStream, socket, username }) => {
     signSocketRef.current?.disconnect();
     signSocketRef.current = null;
 
+    if (metricsIntervalRef.current) {
+      clearInterval(metricsIntervalRef.current);
+      metricsIntervalRef.current = null;
+    }
+
     clearTimeout(captionTimeoutRef.current);
     setCaptionText("");
     setCaptionScore(0);
     setIsEnabled(false);
+    setSignServerHealth("unknown");
+    lastVectorRef.current = null;
+    lastSentTimeRef.current = 0;
+    lastFullSentTimeRef.current = 0;
+    sendIntervalRef.current = SEND_INTERVAL_MS;
   }, []);
 
   // Toggle
@@ -339,6 +426,8 @@ const useSignLanguage = ({ localStream, socket, username }) => {
     captionScore,
     correctedSentence,
     remoteCaptions,
+    signServerHealth,
+    signServerMetrics,
   };
 };
 

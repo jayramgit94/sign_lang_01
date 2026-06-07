@@ -1,7 +1,31 @@
 /**
  * Room Socket Handler — Join/leave room events.
  */
+import config from "../../config/index.js";
 import roomService from "../../services/room.service.js";
+import { createRateLimiter } from "./rateLimit.js";
+import { joinRoomSchema, mediaStateSchema } from "./schemas.js";
+
+const allowJoin = createRateLimiter({ windowMs: 60_000, max: 6 });
+const allowLeave = createRateLimiter({ windowMs: 60_000, max: 12 });
+const allowMediaUpdate = createRateLimiter({ windowMs: 10_000, max: 30 });
+const allowRoomInfo = createRateLimiter({ windowMs: 10_000, max: 30 });
+
+const emitInvalid = (event, socket) => {
+  socket.emit("error", {
+    message: "Invalid payload.",
+    code: "INVALID_PAYLOAD",
+    event,
+  });
+};
+
+const emitRateLimit = (event, socket) => {
+  socket.emit("error", {
+    message: "Rate limit exceeded.",
+    code: "RATE_LIMIT",
+    event,
+  });
+};
 
 export const registerRoomHandlers = (io, socket) => {
   /**
@@ -9,7 +33,15 @@ export const registerRoomHandlers = (io, socket) => {
    * @param {{ roomCode: string, username?: string }} data
    */
   socket.on("join-room", (data) => {
-    const roomCode = (data?.roomCode || "").trim().toLowerCase();
+    if (!allowJoin(`${socket.id}:join`)) {
+      return emitRateLimit("join-room", socket);
+    }
+    const parsed = joinRoomSchema.safeParse(data || {});
+    if (!parsed.success) {
+      return emitInvalid("join-room", socket);
+    }
+
+    const roomCode = parsed.data.roomCode.trim().toLowerCase();
 
     if (!roomCode) {
       return socket.emit("error", { message: "Room code is required." });
@@ -21,7 +53,8 @@ export const registerRoomHandlers = (io, socket) => {
       });
     }
 
-    const username = socket.username || data.username || "Guest";
+    const incomingName = parsed.data.username || "";
+    const username = (socket.username || incomingName || "Guest").slice(0, 50);
 
     const result = roomService.joinRoom(roomCode, socket.id, {
       userId: socket.userId,
@@ -47,6 +80,10 @@ export const registerRoomHandlers = (io, socket) => {
       })),
       messages: roomService.getMessages(roomCode),
       isHost: roomService.isHost(socket.id),
+      limits: {
+        maxParticipants: result.room.settings.maxParticipants,
+        meshRecommendedMax: config.room.meshRecommendedMax,
+      },
     });
 
     // Notify existing participants about the new user
@@ -65,6 +102,9 @@ export const registerRoomHandlers = (io, socket) => {
    * Leave current room explicitly.
    */
   socket.on("leave-room", () => {
+    if (!allowLeave(`${socket.id}:leave`)) {
+      return emitRateLimit("leave-room", socket);
+    }
     const result = roomService.leaveRoom(socket.id);
 
     if (result.code) {
@@ -91,7 +131,12 @@ export const registerRoomHandlers = (io, socket) => {
    * Update media state (video/audio on/off).
    */
   socket.on("media-state-update", (data) => {
-    const { video, audio } = data || {};
+    if (!allowMediaUpdate(`${socket.id}:media`)) {
+      return emitRateLimit("media-state-update", socket);
+    }
+    const parsed = mediaStateSchema.safeParse(data || {});
+    if (!parsed.success) return emitInvalid("media-state-update", socket);
+    const { video, audio } = parsed.data;
     const roomCode = roomService.getSocketRoom(socket.id);
 
     if (roomCode) {
@@ -112,6 +157,9 @@ export const registerRoomHandlers = (io, socket) => {
    * Get current room info.
    */
   socket.on("get-room-info", (callback) => {
+    if (!allowRoomInfo(`${socket.id}:info`)) {
+      return callback?.({ error: "Rate limit exceeded.", code: "RATE_LIMIT" });
+    }
     const roomCode = roomService.getSocketRoom(socket.id);
     if (!roomCode) return callback?.({ error: "Not in a room." });
 

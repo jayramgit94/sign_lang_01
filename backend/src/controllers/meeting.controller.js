@@ -39,6 +39,24 @@ const STOP_WORDS = new Set([
   "my",
 ]);
 
+const statsCache = new Map();
+const STATS_CACHE_TTL_MS = 30 * 1000;
+
+const logStatsCache = (action, key) => {
+  if (process.env.NODE_ENV === "production") return;
+  console.log(
+    `[StatsCache] ${action} key=${key} size=${statsCache.size} ttlMs=${STATS_CACHE_TTL_MS}`,
+  );
+};
+
+const invalidateStatsCache = (userId) => {
+  if (!userId) return;
+  const key = userId.toString();
+  if (statsCache.delete(key)) {
+    logStatsCache("invalidate", key);
+  }
+};
+
 const toDurationLabel = (seconds) => {
   const s = Math.max(0, Number(seconds) || 0);
   const h = Math.floor(s / 3600);
@@ -153,6 +171,8 @@ export const addToHistory = async (req, res, next) => {
       meetingCode: sanitized,
     });
 
+    invalidateStatsCache(req.user.userId);
+
     res.status(201).json(meeting);
   } catch (err) {
     next(err);
@@ -243,6 +263,8 @@ export const updateMeeting = async (req, res, next) => {
       { new: true },
     ).lean();
 
+    invalidateStatsCache(req.user.userId);
+
     res.json(meeting);
   } catch (err) {
     next(err);
@@ -268,6 +290,8 @@ export const deleteMeeting = async (req, res, next) => {
       return res.status(404).json({ message: "Meeting not found." });
     }
 
+    invalidateStatsCache(req.user.userId);
+
     res.json({ message: "Meeting deleted." });
   } catch (err) {
     next(err);
@@ -280,6 +304,16 @@ export const deleteMeeting = async (req, res, next) => {
 export const getStats = async (req, res, next) => {
   try {
     const userId = new mongoose.Types.ObjectId(req.user.userId);
+    const cacheKey = userId.toString();
+    const cached = statsCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < STATS_CACHE_TTL_MS) {
+      logStatsCache("hit", cacheKey);
+      return res.json(cached.payload);
+    }
+    if (cached) {
+      statsCache.delete(cacheKey);
+      logStatsCache("expired", cacheKey);
+    }
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -324,7 +358,7 @@ export const getStats = async (req, res, next) => {
       },
     ]);
 
-    res.json({
+    const payload = {
       totalMeetings: stats.total[0]?.count || 0,
       thisWeek: stats.thisWeek[0]?.count || 0,
       thisMonth: stats.thisMonth[0]?.count || 0,
@@ -332,7 +366,11 @@ export const getStats = async (req, res, next) => {
       avgDuration: Math.round(stats.avgDuration[0]?.avg || 0),
       frequentRooms: stats.frequentRooms || [],
       topSignDetections: stats.totalSignDetections || [],
-    });
+    };
+
+    statsCache.set(cacheKey, { ts: Date.now(), payload });
+    logStatsCache("set", cacheKey);
+    res.json(payload);
   } catch (err) {
     next(err);
   }

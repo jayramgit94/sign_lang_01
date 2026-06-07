@@ -3,15 +3,17 @@
  */
 import { Close, Send } from "@mui/icons-material";
 import { IconButton, TextField, Typography } from "@mui/material";
+import { motion, useReducedMotion } from "framer-motion";
 import React, { useEffect, useRef, useState } from "react";
 import styles from "../../styles/videoComponent.module.css";
 import { formatTime } from "../../utils/helpers";
+import { panelVariants, springPanel } from "../../utils/motion";
 
 const ChatPanel = ({ messages, onSend, username, onClose }) => {
+  const reduced = useReducedMotion();
   const [text, setText] = useState("");
   const messagesEndRef = useRef(null);
 
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
@@ -30,26 +32,49 @@ const ChatPanel = ({ messages, onSend, username, onClose }) => {
   };
 
   return (
-    <div className={styles.chatPanel}>
-      {/* Header */}
+    <motion.aside
+      className={styles.chatPanel}
+      role="complementary"
+      aria-label="Meeting chat"
+      variants={panelVariants}
+      initial={reduced ? false : "initial"}
+      animate="animate"
+      exit={reduced ? undefined : "exit"}
+      transition={springPanel(reduced)}
+    >
       <div className={styles.chatHeader}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: "#fff" }}>
+        <Typography
+          component="h2"
+          variant="subtitle1"
+          sx={{ fontWeight: 700, color: "#fff", fontFamily: "inherit" }}
+        >
           Chat
         </Typography>
-        <IconButton onClick={onClose} size="small" sx={{ color: "#aaa" }}>
+        <IconButton
+          onClick={onClose}
+          size="small"
+          sx={{ color: "rgba(148,163,184,0.8)" }}
+          aria-label="Close chat"
+        >
           <Close />
         </IconButton>
       </div>
 
-      {/* Messages */}
-      <div className={styles.chatMessages}>
+      <div
+        className={styles.chatMessages}
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
+      >
         {messages.length === 0 && (
-          <Typography
-            variant="body2"
-            sx={{ color: "#666", textAlign: "center", mt: 4 }}
-          >
-            No messages yet. Say hello!
-          </Typography>
+          <div className={styles.emptyState}>
+            <Typography variant="body2" component="p">
+              No messages yet
+            </Typography>
+            <Typography variant="caption" component="p">
+              Say hello to start the conversation
+            </Typography>
+          </div>
         )}
 
         {messages.map((msg, idx) => {
@@ -74,7 +99,6 @@ const ChatPanel = ({ messages, onSend, username, onClose }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
       <div className={styles.chatInputArea}>
         <TextField
           value={text}
@@ -87,24 +111,31 @@ const ChatPanel = ({ messages, onSend, username, onClose }) => {
           maxRows={3}
           sx={{
             "& .MuiInputBase-root": {
-              color: "#fff",
-              backgroundColor: "#2a2a3e",
-              borderRadius: "8px",
+              color: "#f1f5f9",
+              backgroundColor: "rgba(15,23,42,0.6)",
+              borderRadius: "12px",
+              border: "1px solid rgba(148,163,184,0.15)",
             },
-            "& .MuiOutlinedInput-notchedOutline": {
-              borderColor: "transparent",
+            "& .MuiOutlinedInput-notchedOutline": { border: "none" },
+            "& .MuiInputBase-root.Mui-focused": {
+              boxShadow: "0 0 0 2px rgba(99,102,241,0.25)",
             },
           }}
         />
         <IconButton
           onClick={handleSend}
           disabled={!text.trim()}
-          sx={{ color: text.trim() ? "#FF9839" : "#555" }}
+          sx={{
+            color: text.trim() ? "#ff9839" : "rgba(148,163,184,0.4)",
+            transition: "color 0.2s ease, transform 0.2s ease",
+            "&:hover:not(:disabled)": { transform: "scale(1.05)" },
+          }}
+          aria-label="Send message"
         >
           <Send />
         </IconButton>
       </div>
-    </div>
+    </motion.aside>
   );
 };
 

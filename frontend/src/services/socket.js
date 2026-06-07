@@ -43,6 +43,18 @@ export const getSocket = (username) => {
     console.warn("[Socket] Connection error:", err.message);
   });
 
+  socket.on("error", (err) => {
+    const normalized = {
+      message: err?.message || "Socket error",
+      code: err?.code || "SOCKET_ERROR",
+      event: err?.event || null,
+    };
+    console.warn("[Socket] Error:", normalized);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("socket:error", { detail: normalized }));
+    }
+  });
+
   socket.on("disconnect", (reason) => {
     console.log("[Socket] Disconnected:", reason);
   });

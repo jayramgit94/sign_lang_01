@@ -7,7 +7,8 @@
  * Previously 1703 lines → now ~200 lines.
  */
 import { useSnackbar } from "notistack";
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { AnimatePresence } from "framer-motion";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 // Hooks
@@ -20,8 +21,12 @@ import ChatPanel from "../components/chat/ChatPanel";
 import CaptionOverlay from "../components/video/CaptionOverlay";
 import ControlBar from "../components/video/ControlBar";
 import Lobby from "../components/video/Lobby";
+import LocalPiP from "../components/video/LocalPiP";
+import MeetingTopBar from "../components/video/MeetingTopBar";
 import PeoplePanel from "../components/video/PeoplePanel";
 import VideoGrid from "../components/video/VideoGrid";
+import { formatDuration } from "../utils/helpers";
+import { MESH_RECOMMENDED_MAX } from "../utils/constants";
 
 // Context & services
 import { AuthContext } from "../contexts/AuthContextType";
@@ -49,11 +54,17 @@ const VideoMeet = () => {
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [captionsVisible, setCaptionsVisible] = useState(true);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
+  const [pinnedParticipantId, setPinnedParticipantId] = useState(null);
+  const [callDurationSec, setCallDurationSec] = useState(0);
+  const [layoutMode, setLayoutMode] = useState("grid");
+  const [speakerLevels, setSpeakerLevels] = useState({});
+  const [pipDismissed, setPipDismissed] = useState(false);
 
   // Meeting tracking refs (persisted across renders, not causing re-renders)
   const meetingIdRef = useRef(null); // DB _id returned from addToHistory
   const joinTimeRef = useRef(null);
   const signDetectionsRef = useRef(new Map()); // label → count
+  const lastSocketToastRef = useRef({ ts: 0, key: "" });
 
   // Socket — created once. getSocket is idempotent (returns existing socket
   // even if still connecting), so StrictMode double-invoke is safe.
@@ -75,8 +86,23 @@ const VideoMeet = () => {
   useEffect(() => {
     if (!socket) return;
 
-    const handleError = ({ message }) => {
-      enqueueSnackbar(message || "Socket error", { variant: "error" });
+    const handleError = (err) => {
+      const code = err?.code ?? null;
+      const fallback = typeof err?.message === "string" ? err.message : null;
+      const friendly = {
+        RATE_LIMIT: "Too many requests. Please slow down.",
+        INVALID_PAYLOAD: "An invalid request was detected.",
+        INVALID_PEER: "Could not connect to that participant.",
+      };
+      const variant = code === "RATE_LIMIT" ? "warning" : "error";
+      const message = friendly[code] || fallback || "Socket error";
+      const key = `${variant}:${code || "UNKNOWN"}:${message}`;
+      const now = Date.now();
+      if (lastSocketToastRef.current.key === key) {
+        if (now - lastSocketToastRef.current.ts < 2000) return;
+      }
+      lastSocketToastRef.current = { ts: now, key };
+      enqueueSnackbar(message, { variant });
     };
     socket.on("error", handleError);
 
@@ -115,6 +141,7 @@ const VideoMeet = () => {
     captionScore,
     correctedSentence,
     remoteCaptions,
+    signServerHealth,
   } = useSignLanguage({ localStream, socket, username });
 
   // --- Join from lobby ---
@@ -205,8 +232,12 @@ const VideoMeet = () => {
   // --- Toggle chat panel ---
   const handleToggleChat = useCallback(() => {
     setChatOpen((prev) => {
-      if (!prev) resetNewMessages();
-      return !prev;
+      const next = !prev;
+      if (next) {
+        setPeopleOpen(false);
+        resetNewMessages();
+      }
+      return next;
     });
   }, [resetNewMessages]);
 
@@ -217,7 +248,11 @@ const VideoMeet = () => {
 
   // --- Toggle people panel ---
   const handleTogglePeople = useCallback(() => {
-    setPeopleOpen((prev) => !prev);
+    setPeopleOpen((prev) => {
+      const next = !prev;
+      if (next) setChatOpen(false);
+      return next;
+    });
   }, []);
 
   // --- Keyboard shortcuts ---
@@ -309,6 +344,70 @@ const VideoMeet = () => {
     enqueueSnackbar(screenShareError, { variant: "warning" });
   }, [screenShareError, enqueueSnackbar]);
 
+  // Call duration timer (UI only)
+  useEffect(() => {
+    if (inLobby) return undefined;
+    const interval = setInterval(() => {
+      if (joinTimeRef.current) {
+        setCallDurationSec(
+          Math.floor((Date.now() - joinTimeRef.current) / 1000),
+        );
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [inLobby]);
+
+  const handleAudioLevel = useCallback((tileId, level) => {
+    setSpeakerLevels((prev) => {
+      const prevLevel = prev[tileId] ?? 0;
+      if (Math.abs(prevLevel - level) < 0.015) return prev;
+      return { ...prev, [tileId]: level };
+    });
+  }, []);
+
+  const autoSpeakerId = useMemo(() => {
+    const threshold = 0.08;
+    let bestId = null;
+    let bestLevel = threshold;
+    for (const [id, level] of Object.entries(speakerLevels)) {
+      if (id === "local") continue;
+      if (level > bestLevel) {
+        bestLevel = level;
+        bestId = id;
+      }
+    }
+    return bestId;
+  }, [speakerLevels]);
+
+  const effectivePinnedId = useMemo(() => {
+    if (pinnedParticipantId) {
+      if (pinnedParticipantId === "local") return "local";
+      return participantList.some((p) => p.socketId === pinnedParticipantId)
+        ? pinnedParticipantId
+        : null;
+    }
+    if (layoutMode === "speaker" && autoSpeakerId) return autoSpeakerId;
+    return null;
+  }, [pinnedParticipantId, participantList, layoutMode, autoSpeakerId]);
+
+  const showLocalPiP =
+    !pipDismissed &&
+    Boolean(effectivePinnedId) &&
+    effectivePinnedId !== "local";
+
+  const handleLayoutModeChange = useCallback((mode) => {
+    setLayoutMode(mode);
+    if (mode === "speaker") setPinnedParticipantId(null);
+  }, []);
+
+  const handlePinToggle = useCallback((id) => {
+    setPinnedParticipantId(id);
+    if (id) setLayoutMode("grid");
+  }, []);
+
+  const participantCount = 1 + participantList.length;
+  const showMeshWarning = participantCount > MESH_RECOMMENDED_MAX;
+
   // --- Lobby view ---
   if (inLobby) {
     return (
@@ -323,16 +422,47 @@ const VideoMeet = () => {
   // --- Call view ---
   return (
     <div className={styles.meetContainer}>
+      <MeetingTopBar
+        meetingCode={meetingCode}
+        participantCount={1 + participantList.length}
+        callDuration={formatDuration(callDurationSec)}
+        signLangEnabled={signLangEnabled}
+        layoutMode={layoutMode}
+        onLayoutModeChange={handleLayoutModeChange}
+      />
+
       {/* Main video area */}
       <div
         className={`${styles.videoArea} ${chatOpen || peopleOpen ? styles.videoAreaWithChat : ""}`}
       >
+        {showMeshWarning && (
+          <div
+            className={styles.performanceBanner}
+            role="status"
+            aria-live="polite"
+          >
+            Large call ({participantCount} participants). Video quality may be
+            reduced on this connection type.
+          </div>
+        )}
+        {signLangEnabled && signServerHealth === "degraded" && (
+          <div
+            className={styles.serviceBanner}
+            role="status"
+            aria-live="polite"
+          >
+            Sign-language service is under load. Captions may be delayed.
+          </div>
+        )}
         <VideoGrid
           localStream={localStream}
           remoteStreams={remoteStreams}
           username={username}
           video={video}
           audio={audio}
+          pinnedId={effectivePinnedId}
+          onPinToggle={handlePinToggle}
+          onAudioLevel={handleAudioLevel}
         />
 
         {/* Caption overlay — only shown when captions are enabled */}
@@ -347,27 +477,49 @@ const VideoMeet = () => {
         )}
       </div>
 
+      <LocalPiP
+        stream={localStream}
+        username={username}
+        videoEnabled={video}
+        audioEnabled={audio}
+        visible={showLocalPiP}
+        onDismiss={() => setPipDismissed(true)}
+      />
+
       {/* Chat panel (side drawer) */}
-      {chatOpen && (
-        <ChatPanel
-          messages={messages}
-          onSend={sendMessage}
-          username={username}
-          onClose={() => setChatOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {chatOpen && (
+          <ChatPanel
+            key="chat"
+            messages={messages}
+            onSend={sendMessage}
+            username={username}
+            onClose={() => setChatOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* People panel (side drawer) */}
-      {peopleOpen && (
-        <PeoplePanel
-          participants={participantList}
-          localUsername={username}
-          onClose={() => setPeopleOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {peopleOpen && (
+          <PeoplePanel
+            key="people"
+            participants={participantList}
+            remoteStreams={remoteStreams}
+            localUsername={username}
+            localVideo={video}
+            localAudio={audio}
+            onClose={() => setPeopleOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {showShortcutHints && (
-        <div className={styles.shortcutGuide}>
+        <div
+          className={styles.shortcutGuide}
+          role="dialog"
+          aria-label="Keyboard shortcuts"
+        >
           <div className={styles.shortcutGuideTitle}>Keyboard Shortcuts</div>
           <div className={styles.shortcutGrid}>
             <span className={styles.shortcutKey}>M</span>

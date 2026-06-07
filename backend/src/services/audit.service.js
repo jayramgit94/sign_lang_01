@@ -6,6 +6,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
+import { getClientIpFromRequest } from "../utils/clientIp.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logsDir = path.join(__dirname, "../../logs");
@@ -69,7 +70,7 @@ export const auditMiddleware = () => {
           username: req.username || "anonymous",
           action,
           resource: getResourceFromPath(req.path),
-          ip: getClientIp(req),
+          ip: getClientIpFromRequest(req),
           userAgent: req.headers["user-agent"],
           success,
           details: `${req.method} ${req.path} - Status: ${res.statusCode}`,
@@ -109,18 +110,6 @@ function getResourceFromPath(path) {
   if (path.includes("/meetings")) return "meeting";
   if (path.includes("/users")) return "user";
   return "unknown";
-}
-
-/**
- * Get client IP address from request
- */
-function getClientIp(req) {
-  return (
-    req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
-    req.headers["x-real-ip"] ||
-    req.socket?.remoteAddress ||
-    "unknown"
-  );
 }
 
 /**

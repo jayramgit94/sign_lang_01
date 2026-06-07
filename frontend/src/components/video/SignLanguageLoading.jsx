@@ -1,72 +1,52 @@
 /**
- * Sign Language Loading overlay
- * Shows loading state while MediaPipe and server are initializing
+ * Sign Language Loading overlay — premium loading state.
  */
-
-import { CircularProgress, Box, Typography, Alert } from "@mui/material";
+import { Alert, CircularProgress, Typography } from "@mui/material";
+import { motion, useReducedMotion } from "framer-motion";
+import styles from "../../styles/videoComponent.module.css";
+import { fadeUpTransition, fadeUpVariants } from "../../utils/motion";
 
 const SignLanguageLoading = ({ isLoading, loadingError, onClose }) => {
+  const reduced = useReducedMotion();
+
   if (!isLoading && !loadingError) return null;
 
   return (
-    <Box
-      sx={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        bgcolor: "rgba(0, 0, 0, 0.7)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 9999,
-        backdropFilter: "blur(4px)",
-      }}
-    >
-      {isLoading && (
-        <Box sx={{ textAlign: "center" }}>
-          <CircularProgress
-            size={60}
-            sx={{ mb: 2, color: "primary.main" }}
-          />
-          <Typography
-            variant="h6"
-            sx={{ color: "white", fontWeight: 500, mb: 1 }}
-          >
-            Loading Sign Language Recognition...
-          </Typography>
-          <Typography
-            variant="body2"
-            sx={{ color: "rgba(255,255,255,0.7)" }}
-          >
-            Initializing MediaPipe and connecting to server
-          </Typography>
-        </Box>
-      )}
-
-      {loadingError && (
-        <Box sx={{ textAlign: "center", maxWidth: 500 }}>
-          <Alert
-            severity="error"
-            sx={{ mb: 2 }}
-            onClose={onClose}
-          >
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-              Sign Language Recognition Error
+    <div className={styles.signLangOverlay} role="alertdialog" aria-modal="true">
+      <motion.div
+        className={styles.signLangOverlayCard}
+        variants={fadeUpVariants}
+        initial={reduced ? false : "initial"}
+        animate="animate"
+        transition={fadeUpTransition(0, reduced)}
+      >
+        {isLoading && (
+          <>
+            <CircularProgress size={52} thickness={4} sx={{ color: "#6366f1", mb: 2 }} />
+            <Typography variant="h6" sx={{ color: "#fff", fontWeight: 700, mb: 1 }}>
+              Loading sign language recognition
             </Typography>
-            <Typography variant="body2">{loadingError}</Typography>
-          </Alert>
-          <Typography
-            variant="caption"
-            sx={{ color: "rgba(255,255,255,0.6)" }}
-          >
-            Try refreshing the page or check your internet connection
-          </Typography>
-        </Box>
-      )}
-    </Box>
+            <Typography variant="body2" sx={{ color: "rgba(226,232,240,0.65)" }}>
+              Initializing MediaPipe and connecting to the server
+            </Typography>
+          </>
+        )}
+
+        {loadingError && (
+          <>
+            <Alert severity="error" sx={{ mb: 2, width: "100%" }} onClose={onClose}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                Sign language recognition error
+              </Typography>
+              <Typography variant="body2">{loadingError}</Typography>
+            </Alert>
+            <Typography variant="caption" sx={{ color: "rgba(226,232,240,0.55)" }}>
+              Try refreshing the page or check your connection
+            </Typography>
+          </>
+        )}
+      </motion.div>
+    </div>
   );
 };
 
