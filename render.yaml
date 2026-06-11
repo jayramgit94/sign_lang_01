@@ -1,3 +1,4 @@
+# Root blueprint — deploy signlang-ai from jars_project_onnx with Docker.
 services:
   - type: web
     name: signlang-ai

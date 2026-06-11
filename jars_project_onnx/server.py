@@ -6,9 +6,18 @@ WORKFLOW: Frontend captures video -> Mediapipe extracts landmarks ->
 """
 
 # ============ IMPORTS ============
-from gevent import monkey
+import os
 
-monkey.patch_all()  # Required for gevent + Flask-SocketIO on gunicorn
+_ASYNC_MODE = os.getenv("SOCKETIO_ASYNC_MODE", "eventlet").strip().lower()
+
+if _ASYNC_MODE == "gevent":
+    from gevent import monkey
+
+    monkey.patch_all()
+else:
+    import eventlet
+
+    eventlet.monkey_patch()
 
 try:
     from dotenv import load_dotenv
@@ -18,7 +27,6 @@ except ImportError:
     pass  # On Render, env vars are set via dashboard
 
 import json
-import os
 from datetime import datetime
 import numpy as np
 from flask import Flask, request, send_from_directory
@@ -145,7 +153,7 @@ ALLOWED_ORIGINS = [
 socketio = SocketIO(
     app,
     cors_allowed_origins=ALLOWED_ORIGINS,
-    async_mode="gevent",
+    async_mode=_ASYNC_MODE,
     max_http_buffer_size=1_000_000,  # 1 MB max message size
     ping_timeout=30,
     ping_interval=15,
