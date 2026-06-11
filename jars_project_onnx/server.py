@@ -6,9 +6,9 @@ WORKFLOW: Frontend captures video -> Mediapipe extracts landmarks ->
 """
 
 # ============ IMPORTS ============
-import eventlet
+from gevent import monkey
 
-eventlet.monkey_patch()  # Monkey patch for eventlet async support
+monkey.patch_all()  # Required for gevent + Flask-SocketIO on gunicorn
 
 try:
     from dotenv import load_dotenv
@@ -145,7 +145,7 @@ ALLOWED_ORIGINS = [
 socketio = SocketIO(
     app,
     cors_allowed_origins=ALLOWED_ORIGINS,
-    async_mode="eventlet",
+    async_mode="gevent",
     max_http_buffer_size=1_000_000,  # 1 MB max message size
     ping_timeout=30,
     ping_interval=15,

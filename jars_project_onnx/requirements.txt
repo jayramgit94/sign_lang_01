@@ -7,6 +7,8 @@ onnxruntime
 flask 
 flask-socketio 
 numpy
-eventlet
+gevent
+gevent-websocket
+gunicorn
 scikit-learn
 python-dotenv

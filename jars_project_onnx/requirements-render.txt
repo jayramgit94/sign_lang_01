@@ -2,10 +2,11 @@
 # NOTE: torch, torchvision, mediapipe, opencv-python, onnx are NOT needed
 #       for the server — they are only used for training/data collection.
 
-flask
-flask-socketio
-numpy
-onnxruntime
-eventlet
-gunicorn
-python-dotenv
+flask>=3.0.0
+flask-socketio>=5.3.0
+numpy>=1.26.0
+onnxruntime>=1.17.0
+gevent>=24.10.1
+gevent-websocket>=0.10.1
+gunicorn>=22.0.0
+python-dotenv>=1.0.0
