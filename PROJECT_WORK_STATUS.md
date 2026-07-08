@@ -36,6 +36,19 @@
 
 - Verify SMTP email delivery in deployed environment (Render/Vercel) using real inbox test.
 - Rotate all exposed secrets/tokens and redeploy with fresh values.
+- Ensure Render signlang-ai uses Docker runtime or updated start command (`gunicorn -c gunicorn_conf.py server:app`).
+
+## Verification (July 2026)
+
+| Check | Status |
+|-------|--------|
+| Backend client-ip smoke test | Pass |
+| Backend socket-schema smoke test | Pass |
+| Backend security smoke test | Pass (requires server on :8001) |
+| Frontend lint | Pass |
+| Frontend production build | Pass |
+| ONNX rate-limit smoke test | Pass |
+| README / env var docs | Updated |
 
 ## Notes
 

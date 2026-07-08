@@ -71,6 +71,7 @@ export const BITRATE_TIERS = {
 
 export const SIGN_LANG_SERVER_URL =
   import.meta.env.VITE_SIGN_LANG_URL ||
+  import.meta.env.VITE_SIGNLANG_URL ||
   (import.meta.env.DEV ? "http://localhost:5000" : "");
 
 export const MAX_CHAT_MESSAGE_LENGTH = 2000;
